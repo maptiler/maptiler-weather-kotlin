@@ -1,3 +1,6 @@
+# Mac OS X
+.DS_Store
+
 # Compiled class file
 *.class
 
@@ -25,3 +28,35 @@ replay_pid*
 
 # Kotlin Gradle plugin data, see https://kotlinlang.org/docs/whatsnew20.html#new-directory-for-kotlin-data-in-gradle-projects
 .kotlin/
+
+# Gradle
+.gradle
+jniLibs
+build
+local.properties
+local.defaults.properties
+reports
+
+*.iml
+/captures
+.externalNativeBuild
+.cxx
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+
+!/gradle/wrapper/gradle-wrapper.jar
+
+AGENTS.md
+CLAUDE.md
+output.txt
+.gemini/
+gha-creds-*.json
+GEMINI.md
+gemini-artifacts
+.geminiignore
+patch.txt
