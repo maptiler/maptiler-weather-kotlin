@@ -1,0 +1,16 @@
+*.iml
+.gradle
+/local.properties
+/maptilerweather/.idea/caches
+/maptilerweather/.idea/libraries
+/maptilerweather/.idea/modules.xml
+/maptilerweather/.idea/workspace.xml
+/maptilerweather/.idea/navEditor.xml
+/maptilerweather/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+/build
