@@ -34,7 +34,6 @@ replay_pid*
 jniLibs
 build
 local.properties
-local.defaults.properties
 reports
 
 *.iml
@@ -48,6 +47,7 @@ reports
 /.idea/workspace.xml
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
+/.idea/
 
 !/gradle/wrapper/gradle-wrapper.jar
 
