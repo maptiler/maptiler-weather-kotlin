@@ -6,6 +6,7 @@
 
 package com.maptiler.maptilerweather
 
+import android.util.Log
 import com.maptiler.maptilersdk.helpers.JsonConfig
 import com.maptiler.maptilersdk.map.MTMapModule
 import com.maptiler.maptilersdk.map.MTMapViewController
@@ -50,7 +51,7 @@ class MapTilerWeatherModule : MTMapModule {
                 layer.handleEvent(event, dataMap)
             }
         } catch (e: Exception) {
-            // Ignore malformed event data
+            Log.e("onMessageReceived", "$e")
         }
     }
 }
