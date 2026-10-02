@@ -19,7 +19,7 @@ internal data class AddWeatherLayer(
     override val isPrimitiveReturnType: Boolean = false
 
     override fun toJS(): String {
-        val layerJSONString = JsonConfig.json.encodeToString(layer)
+        val layerJSONString = JsonConfig.json.encodeToString(MTWeatherLayer.serializer(), layer)
         val beforeIdJS = if (beforeId != null) "'$beforeId'" else BEFORE_ID_JS_SNIPPET
 
         return """
