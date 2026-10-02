@@ -12,6 +12,7 @@ import com.maptiler.maptilersdk.map.style.layer.MTLayerType
 import com.maptiler.maptilersdk.map.style.layer.MTLayerVisibility
 import com.maptiler.maptilerweather.colorramp.MTWeatherColorRamp
 import com.maptiler.maptilerweather.commands.AddWeatherLayer
+import com.maptiler.maptilerweather.commands.RemoveWeatherLayer
 import kotlinx.coroutines.launch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -195,6 +196,20 @@ open class MTWeatherLayer(
         }
     }
 
+    /**
+     * Removes the weather layer from the map.
+     *
+     * @param map The map view controller to remove the layer from.
+     */
+    fun removeFrom(map: MTMapViewController) {
+        map.scope?.launch {
+            val command = RemoveWeatherLayer(identifier)
+            map.execute(command)
+        }
+        activeLayers.remove(this)
+        this.controller = null
+    }
+
     internal fun handleEvent(
         event: String,
         data: Map<String, Any?>?,
@@ -206,5 +221,31 @@ open class MTWeatherLayer(
             "tick" -> (data?.get("time") as? Double)?.let { onTick?.invoke(it) }
             "animationTimeSet" -> (data?.get("time") as? Double)?.let { onAnimationTimeSet?.invoke(it) }
         }
+    }
+
+    // MARK: - DSL Modifiers
+
+    /**
+     * Modifier. Sets the opacity.
+     */
+    fun opacity(value: Double): MTWeatherLayer {
+        this.opacity = value
+        return this
+    }
+
+    /**
+     * Modifier. Sets the smooth property.
+     */
+    fun smooth(value: Boolean): MTWeatherLayer {
+        this.smooth = value
+        return this
+    }
+
+    /**
+     * Modifier. Sets the color ramp.
+     */
+    fun colorRamp(value: MTWeatherColorRamp): MTWeatherLayer {
+        this.colorRamp = value
+        return this
     }
 }
