@@ -9,6 +9,9 @@ package com.maptiler.maptilerweather
 import com.maptiler.maptilerweather.colorramp.MTWeatherColorRamp
 import com.maptiler.maptilerweather.colorramp.MTWeatherColorRampPreset
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * A layer that displays precipitation data.
@@ -31,4 +34,30 @@ class MTPrecipitationLayer(
         this.opacity = customOpacity
         this.smooth = customSmooth
     }
+
+    /**
+     * Picks precipitation data at a specific location.
+     *
+     * @param lng Longitude.
+     * @param lat Latitude.
+     * @return Precipitation value in mm/h, or null if not available.
+     */
+    override suspend fun pickAt(
+        lng: Double,
+        lat: Double,
+    ): MTPrecipitationValue? {
+        val result = super.pickAt(lng, lat) as? JsonObject ?: return null
+        val value = result["value"]?.jsonPrimitive?.doubleOrNull ?: return null
+        return MTPrecipitationValue(value = value)
+    }
 }
+
+/**
+ * Precipitation value at a given location.
+ */
+data class MTPrecipitationValue(
+    /**
+     * Precipitation in mm/h.
+     */
+    val value: Double,
+)

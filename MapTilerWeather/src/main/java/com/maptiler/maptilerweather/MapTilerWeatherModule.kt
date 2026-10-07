@@ -13,11 +13,18 @@ import com.maptiler.maptilersdk.bridge.MTCommand
 import com.maptiler.maptilersdk.helpers.JsonConfig
 import com.maptiler.maptilersdk.map.MTMapModule
 import com.maptiler.maptilersdk.map.MTMapViewController
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 
 /**
  * The MapTiler Weather module. Register this with your [MTMapViewController] to enable weather functionality.
@@ -76,23 +83,52 @@ class MapTilerWeatherModule(private val context: Context) : MTMapModule {
         data: String?,
     ) {
         if (data == null) return
+        val controller = this.controller ?: return
 
-        try {
-            val json = JsonConfig.json.decodeFromString<JsonObject>(data)
-            val layerId = json["layerId"]?.jsonPrimitive?.contentOrNull ?: return
+        controller.scope?.launch(Dispatchers.Main) {
+            try {
+                val json = JsonConfig.json.decodeFromString<JsonObject>(data)
+                val layerId = json["layerId"]?.jsonPrimitive?.contentOrNull ?: return@launch
 
-            val targetLayers = MTWeatherLayer.activeLayers.filter { it.identifier == layerId }
+                val targetLayers =
+                    synchronized(MTWeatherLayer.activeLayers) {
+                        MTWeatherLayer.activeLayers.filter { it.identifier == layerId }
+                    }
 
-            val dataMap =
-                json.mapValues { (_, value) ->
-                    value.jsonPrimitive.doubleOrNull ?: value.jsonPrimitive.contentOrNull
+                if (event == "pickAtResult") {
+                    for (layer in targetLayers) {
+                        layer.handlePickAtResult(json)
+                    }
+                    return@launch
                 }
 
-            for (layer in targetLayers) {
-                layer.handleEvent(event, dataMap)
+                val dataMap = json.mapValues { (_, value) -> value.toAny() }
+
+                for (layer in targetLayers) {
+                    layer.handleEvent(event, dataMap)
+                }
+            } catch (e: Exception) {
+                Log.e("onMessageReceived", "$e")
             }
-        } catch (e: Exception) {
-            Log.e("onMessageReceived", "$e")
         }
+    }
+}
+
+/**
+ * Recursively converts a [JsonElement] into its native Kotlin representation
+ * (e.g., Boolean, Long, Double, String, List, Map, or null).
+ */
+private fun JsonElement.toAny(): Any? {
+    return when (this) {
+        is JsonNull -> null
+        is JsonPrimitive -> {
+            if (isString) {
+                content
+            } else {
+                booleanOrNull ?: longOrNull ?: doubleOrNull ?: content
+            }
+        }
+        is JsonArray -> map { it.toAny() }
+        is JsonObject -> mapValues { it.value.toAny() }
     }
 }
