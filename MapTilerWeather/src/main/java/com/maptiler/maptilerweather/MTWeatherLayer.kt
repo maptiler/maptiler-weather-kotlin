@@ -13,10 +13,14 @@ import com.maptiler.maptilersdk.map.style.layer.MTLayerVisibility
 import com.maptiler.maptilerweather.colorramp.MTWeatherColorRamp
 import com.maptiler.maptilerweather.commands.AddWeatherLayer
 import com.maptiler.maptilerweather.commands.RemoveWeatherLayer
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import java.util.Collections
 import java.util.WeakHashMap
 
@@ -135,35 +139,152 @@ open class MTWeatherLayer(
     /**
      * Called only once after the layer has been added to the map,
      * when all the necessary weather data source are loaded and ready to be used.
+     *
+     * **Thread Safety:** This callback is executed on the **Main (UI) thread**. Avoid performing
+     * blocking or heavy operations here; offload long-running work to a background dispatcher.
      */
     @Transient
-    var onSourceReady: (() -> Void)? = null
+    var onSourceReady: (() -> Unit)? = null
 
     /**
      * Called when the animation is starting to play or plays after having been on pause
      * after calling `.animate(...)`. Provides the timestamp in seconds.
+     *
+     * **Thread Safety:** This callback is executed on the **Main (UI) thread**. Avoid performing
+     * blocking or heavy operations here; offload long-running work to a background dispatcher.
      */
     @Transient
-    var onPlayAnimation: ((Double) -> Void)? = null
+    var onPlayAnimation: ((Double) -> Unit)? = null
 
     /**
      * Called when the animation is being paused after calling `.animate(0)`. Provides the timestamp in seconds.
+     *
+     * **Thread Safety:** This callback is executed on the **Main (UI) thread**. Avoid performing
+     * blocking or heavy operations here; offload long-running work to a background dispatcher.
      */
     @Transient
-    var onPauseAnimation: ((Double) -> Void)? = null
+    var onPauseAnimation: ((Double) -> Unit)? = null
 
     /**
      * Called for each animation update, possibly many times per second. Provides the timestamp in seconds.
+     *
+     * **Thread Safety Warning:** This callback runs on the **Main (UI) thread** to allow safe and
+     * synchronized UI updates. Because it fires at a high frequency, performing heavy computations or
+     * blocking operations (e.g. database/network queries or complex data parsing) directly inside this callback
+     * will block the main thread and cause the map animation or UI to stutter. Any heavy or long-running tasks
+     * must be explicitly offloaded to a background dispatcher (such as `Dispatchers.IO` or `Dispatchers.Default`)
+     * using coroutines.
      */
     @Transient
-    var onTick: ((Double) -> Void)? = null
+    var onTick: ((Double) -> Unit)? = null
 
     /**
      * Called when the progress time of the animation is manually set with
      * `.setAnimationTime(...)`. Provides the timestamp in seconds.
+     *
+     * **Thread Safety:** This callback is executed on the **Main (UI) thread**. Avoid performing
+     * blocking or heavy operations here; offload long-running work to a background dispatcher.
      */
     @Transient
-    var onAnimationTimeSet: ((Double) -> Void)? = null
+    var onAnimationTimeSet: ((Double) -> Unit)? = null
+
+    @Transient
+    private val pendingPickAtRequests = java.util.concurrent.ConcurrentHashMap<String, CompletableDeferred<JsonObject?>>()
+
+    /**
+     * Picks weather data at a specific location.
+     *
+     * @param lng Longitude.
+     * @param lat Latitude.
+     * @return The weather data at the given location as a JSON object, or null if not available.
+     */
+    open suspend fun pickAt(
+        lng: Double,
+        lat: Double,
+    ): Any? {
+        val controller = this.controller ?: return null
+        val requestId = java.util.UUID.randomUUID().toString()
+        val deferred = CompletableDeferred<JsonObject?>()
+        pendingPickAtRequests[requestId] = deferred
+
+        val weatherModuleString = "maptiler-weather"
+        val pickAtResultString = "pickAtResult"
+
+        controller.scope?.launch {
+            val command =
+                object : com.maptiler.maptilersdk.bridge.MTCommand {
+                    override val isPrimitiveReturnType: Boolean = false
+
+                    override fun toJS(): String =
+                        """
+                        (function() {
+                            var styleLayer = map.getLayer("${this@MTWeatherLayer.identifier}");
+                            var layer = styleLayer ? (styleLayer.implementation || styleLayer) : null;
+                            if (layer && typeof layer.pickAt === 'function') {
+                                try {
+                                    var res = layer.pickAt($lng, $lat);
+                                    if (window.Android && window.Android.onModuleEvent) {
+                                        window.Android.onModuleEvent(
+                                            "$weatherModuleString",
+                                            "$pickAtResultString",
+                                            JSON.stringify({
+                                                layerId: "${this@MTWeatherLayer.identifier}",
+                                                requestId: "$requestId",
+                                                value: res
+                                            })
+                                        );
+                                    }
+                                } catch (err) {
+                                    if (window.Android && window.Android.onModuleEvent) {
+                                        window.Android.onModuleEvent(
+                                            "$weatherModuleString",
+                                            "$pickAtResultString",
+                                            JSON.stringify({
+                                                layerId: "${this@MTWeatherLayer.identifier}",
+                                                requestId: "$requestId",
+                                                error: err ? err.message : "unknown error"
+                                            })
+                                        );
+                                    }
+                                }
+                            } else {
+                                if (window.Android && window.Android.onModuleEvent) {
+                                    window.Android.onModuleEvent(
+                                        "$weatherModuleString",
+                                        "$pickAtResultString",
+                                        JSON.stringify({
+                                            layerId: "${this@MTWeatherLayer.identifier}",
+                                            requestId: "$requestId",
+                                            error: "layer or pickAt function not found"
+                                        })
+                                    );
+                                }
+                            }
+                        })();
+                        """.trimIndent()
+                }
+            controller.execute(command)
+        }
+
+        return try {
+            deferred.await()
+        } finally {
+            pendingPickAtRequests.remove(requestId)
+        }
+    }
+
+    internal fun handlePickAtResult(json: JsonObject) {
+        val requestId = json["requestId"]?.jsonPrimitive?.contentOrNull ?: return
+        val deferred = pendingPickAtRequests[requestId] ?: return
+
+        val error = json["error"]?.jsonPrimitive?.contentOrNull
+        if (error != null) {
+            deferred.completeExceptionally(Exception(error))
+        } else {
+            val valueObj = json["value"] as? JsonObject
+            deferred.complete(valueObj)
+        }
+    }
 
     companion object {
         /**
