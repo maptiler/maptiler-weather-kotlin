@@ -198,10 +198,10 @@ open class MTWeatherLayer(
      * @param lat Latitude.
      * @return The weather data at the given location as a JSON object, or null if not available.
      */
-    open suspend fun pickAt(
+    internal suspend fun pickAtRaw(
         lng: Double,
         lat: Double,
-    ): Any? {
+    ): JsonObject? {
         val controller = this.controller ?: return null
         val requestId = java.util.UUID.randomUUID().toString()
         val deferred = CompletableDeferred<JsonObject?>()
@@ -271,6 +271,13 @@ open class MTWeatherLayer(
         } finally {
             pendingPickAtRequests.remove(requestId)
         }
+    }
+
+    open suspend fun pickAt(
+        lng: Double,
+        lat: Double,
+    ): Any? {
+        return pickAtRaw(lng, lat)
     }
 
     internal fun handlePickAtResult(json: JsonObject) {
