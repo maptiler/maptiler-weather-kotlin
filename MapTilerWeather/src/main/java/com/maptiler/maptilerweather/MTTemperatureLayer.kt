@@ -8,24 +8,18 @@ package com.maptiler.maptilerweather
 
 import com.maptiler.maptilerweather.colorramp.MTWeatherColorRamp
 import com.maptiler.maptilerweather.colorramp.MTWeatherColorRampPreset
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * A layer that displays temperature data.
  */
-@Serializable
 class MTTemperatureLayer(
-    override var identifier: String = "MapTiler Temperature",
-    @kotlinx.serialization.Transient
+    identifier: String = "MapTiler Temperature",
     var customColorRamp: MTWeatherColorRamp = MTWeatherColorRamp(MTWeatherColorRampPreset.TEMPERATURE_TURBO),
-    @kotlinx.serialization.Transient
     var customOpacity: Double = 1.0,
-    @kotlinx.serialization.Transient
     var customSmooth: Boolean = true,
-) : MTWeatherLayer(identifier) {
+) : MTIntensityLayer(identifier) {
     override val jsClassName: String
         get() = "TemperatureLayer"
 
@@ -46,7 +40,7 @@ class MTTemperatureLayer(
         lng: Double,
         lat: Double,
     ): MTTemperatureValue? {
-        val result = super.pickAt(lng, lat) as? JsonObject ?: return null
+        val result = pickAtRaw(lng, lat) ?: return null
         val value = result["value"]?.jsonPrimitive?.doubleOrNull ?: return null
         val valueImperial = result["valueImperial"]?.jsonPrimitive?.doubleOrNull ?: return null
         return MTTemperatureValue(value = value, valueImperial = valueImperial)

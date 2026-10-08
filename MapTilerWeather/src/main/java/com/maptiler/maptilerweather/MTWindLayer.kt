@@ -8,8 +8,6 @@ package com.maptiler.maptilerweather
 
 import com.maptiler.maptilerweather.colorramp.MTWeatherColorRamp
 import com.maptiler.maptilerweather.colorramp.MTWeatherColorRampPreset
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonPrimitive
@@ -17,16 +15,12 @@ import kotlinx.serialization.json.jsonPrimitive
 /**
  * A layer that displays wind data.
  */
-@Serializable
 class MTWindLayer(
-    override var identifier: String = "MapTiler Wind",
-    @kotlinx.serialization.Transient
+    identifier: String = "MapTiler Wind",
     var customColorRamp: MTWeatherColorRamp = MTWeatherColorRamp(MTWeatherColorRampPreset.WIND_VIRIDIS),
-    @kotlinx.serialization.Transient
     var customOpacity: Double = 1.0,
-    @kotlinx.serialization.Transient
     var customSmooth: Boolean = true,
-) : MTWeatherLayer(identifier) {
+) : MTTileLayer(identifier) {
     override val jsClassName: String
         get() = "WindLayer"
 
@@ -47,7 +41,7 @@ class MTWindLayer(
         lng: Double,
         lat: Double,
     ): MTWindValue? {
-        val result = super.pickAt(lng, lat) as? JsonObject ?: return null
+        val result = pickAtRaw(lng, lat) ?: return null
         val compassDirection = result["compassDirection"]?.jsonPrimitive?.contentOrNull ?: return null
         val directionAngle = result["directionAngle"]?.jsonPrimitive?.doubleOrNull ?: return null
         val speedFeetPerSecond = result["speedFeetPerSecond"]?.jsonPrimitive?.doubleOrNull ?: return null

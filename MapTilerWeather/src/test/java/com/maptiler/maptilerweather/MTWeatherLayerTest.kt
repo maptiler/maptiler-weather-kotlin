@@ -336,4 +336,70 @@ class MTWeatherLayerTest {
 
             assertEquals(123.45, playAnimationTime ?: 0.0, 0.0)
         }
+
+    @Test
+    fun testTileLayerAddAndRemoveSource() =
+        runBlocking {
+            val mockController = mockk<MTMapViewController>(relaxed = true)
+            val testScope = CoroutineScope(Dispatchers.Unconfined)
+            every { mockController.scope } returns testScope
+
+            val tileLayer = MTTileLayer(identifier = "test-tile-layer")
+            tileLayer.controller = mockController
+
+            val capturedCommands = mutableListOf<com.maptiler.maptilersdk.bridge.MTCommand>()
+            every { runBlocking { mockController.execute(capture(capturedCommands)) } } returns mockk()
+
+            val testDate = java.util.Date(1700000000000L) // 1700000000 seconds
+            tileLayer.addSource(testDate, "https://example.com/tiles/{z}/{x}/{y}.png")
+            tileLayer.removeSource(testDate)
+
+            assertEquals(2, capturedCommands.size)
+
+            val jsAdd = capturedCommands[0].toJS()
+            assertTrue("Should contain layer.addSource", jsAdd.contains("layer.addSource("))
+            assertTrue("Should contain the test time", jsAdd.contains("1.7E9") || jsAdd.contains("1700000000"))
+            assertTrue("Should contain the tile url", jsAdd.contains("https://example.com/tiles/"))
+
+            val jsRemove = capturedCommands[1].toJS()
+            assertTrue("Should contain layer.removeSource", jsRemove.contains("layer.removeSource("))
+            assertTrue("Should contain the test time", jsRemove.contains("1.7E9") || jsRemove.contains("1700000000"))
+        }
+
+    @Test
+    fun testIntensityLayerPickAt() =
+        runBlocking {
+            val mockController = mockk<MTMapViewController>(relaxed = true)
+            val testScope = CoroutineScope(Dispatchers.Unconfined)
+            every { mockController.scope } returns testScope
+
+            val layer = MTIntensityLayer(identifier = "test-intensity-layer")
+            layer.controller = mockController
+
+            val commandSlot = slot<com.maptiler.maptilersdk.bridge.MTCommand>()
+            every { runBlocking { mockController.execute(capture(commandSlot)) } } coAnswers {
+                val js = commandSlot.captured.toJS()
+                val requestId = """requestId: "([^"]+)"""".toRegex().find(js)?.groupValues?.get(1)
+                assertNotNull(requestId)
+
+                val responseJson =
+                    buildJsonObject {
+                        put("layerId", "test-intensity-layer")
+                        put("requestId", requestId!!)
+                        put(
+                            "value",
+                            buildJsonObject {
+                                put("value", 85.3)
+                            },
+                        )
+                    }
+
+                layer.handlePickAtResult(responseJson)
+                mockk()
+            }
+
+            val result = layer.pickAt(12.34, 56.78) as? MTIntensityValue
+            assertNotNull(result)
+            assertEquals(85.3, result!!.value, 0.0)
+        }
 }

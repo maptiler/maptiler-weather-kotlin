@@ -8,24 +8,18 @@ package com.maptiler.maptilerweather
 
 import com.maptiler.maptilerweather.colorramp.MTWeatherColorRamp
 import com.maptiler.maptilerweather.colorramp.MTWeatherColorRampPreset
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * A layer that displays pressure data.
  */
-@Serializable
 class MTPressureLayer(
-    override var identifier: String = "MapTiler Pressure",
-    @kotlinx.serialization.Transient
+    identifier: String = "MapTiler Pressure",
     var customColorRamp: MTWeatherColorRamp = MTWeatherColorRamp(MTWeatherColorRampPreset.PRESSURE),
-    @kotlinx.serialization.Transient
     var customOpacity: Double = 1.0,
-    @kotlinx.serialization.Transient
     var customSmooth: Boolean = true,
-) : MTWeatherLayer(identifier) {
+) : MTIntensityLayer(identifier) {
     override val jsClassName: String
         get() = "PressureLayer"
 
@@ -46,7 +40,7 @@ class MTPressureLayer(
         lng: Double,
         lat: Double,
     ): MTPressureValue? {
-        val result = super.pickAt(lng, lat) as? JsonObject ?: return null
+        val result = pickAtRaw(lng, lat) ?: return null
         val value = result["value"]?.jsonPrimitive?.doubleOrNull ?: return null
         return MTPressureValue(value = value)
     }
