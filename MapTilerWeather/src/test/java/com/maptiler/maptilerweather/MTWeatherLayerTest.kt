@@ -402,4 +402,115 @@ class MTWeatherLayerTest {
             assertNotNull(result)
             assertEquals(85.3, result!!.value, 0.0)
         }
+
+    @Test
+    fun testParticleLayerModifiersAndSerialization() {
+        val layer =
+            MTParticleLayer("test-particle")
+                .color(MTRGBAColor(10, 20, 30, 40))
+                .fastColor(MTRGBAColor(100, 110, 120, 130))
+                .density(5.5)
+                .fadeFactor(0.2)
+                .fastSpeed(15.0)
+                .maxAmount(256)
+                .pixelRatio(2.0)
+                .refreshInterval(500.0)
+                .size(2.5)
+                .speed(0.005)
+                .fastIsLarger(true)
+
+        assertEquals(10, layer.color?.red)
+        assertEquals(20, layer.color?.green)
+        assertEquals(30, layer.color?.blue)
+        assertEquals(40, layer.color?.alpha)
+        assertEquals(100, layer.fastColor?.red)
+        assertEquals(110, layer.fastColor?.green)
+        assertEquals(120, layer.fastColor?.blue)
+        assertEquals(130, layer.fastColor?.alpha)
+        assertEquals(5.5, layer.density ?: 0.0, 0.0)
+        assertEquals(0.2, layer.fadeFactor ?: 0.0, 0.0)
+        assertEquals(15.0, layer.fastSpeed ?: 0.0, 0.0)
+        assertEquals(256, layer.maxAmount ?: 0)
+        assertEquals(2.0, layer.pixelRatio ?: 0.0, 0.0)
+        assertEquals(500.0, layer.refreshInterval ?: 0.0, 0.0)
+        assertEquals(2.5, layer.size ?: 0.0, 0.0)
+        assertEquals(0.005, layer.speed ?: 0.0, 0.0)
+        assertEquals(true, layer.fastIsLarger)
+
+        val jsonStr =
+            com.maptiler.maptilersdk.helpers.JsonConfig.json.encodeToString(
+                MTParticleLayer.serializer(),
+                layer,
+            )
+        assertTrue(jsonStr.contains("\"id\":\"test-particle\""))
+        assertTrue(jsonStr.contains("\"color\":[10,20,30,40]"))
+        assertTrue(jsonStr.contains("\"fastColor\":[100,110,120,130]"))
+        assertTrue(jsonStr.contains("\"density\":5.5"))
+        assertTrue(jsonStr.contains("\"fadeFactor\":0.2"))
+        assertTrue(jsonStr.contains("\"fastSpeed\":15.0"))
+        assertTrue(jsonStr.contains("\"maxAmount\":256"))
+        assertTrue(jsonStr.contains("\"pixelRatio\":2.0"))
+        assertTrue(jsonStr.contains("\"refreshInterval\":500.0"))
+        assertTrue(jsonStr.contains("\"size\":2.5"))
+        assertTrue(jsonStr.contains("\"speed\":0.005"))
+        assertTrue(jsonStr.contains("\"fastIsLarger\":true"))
+    }
+
+    @Test
+    fun testColoringFragmentSerialization() {
+        val decode = MTDecoderOptions("rg", -10.0, 45.0)
+        val stops =
+            listOf(
+                com.maptiler.maptilerweather.colorramp.MTWeatherColorRampStop(0.0, listOf(0, 0, 0, 0)),
+                com.maptiler.maptilerweather.colorramp.MTWeatherColorRampStop(1.0, listOf(255, 255, 255, 255)),
+            )
+        val fragment: MTColoringFragment =
+            MTGradientColoringFragment(
+                decode = decode,
+                stops = stops,
+                smooth = false,
+                opacity = 0.8,
+            )
+
+        val jsonStr =
+            com.maptiler.maptilersdk.helpers.JsonConfig.json.encodeToString(
+                MTColoringFragment.serializer(),
+                fragment,
+            )
+        assertTrue(jsonStr.contains("\"type\":\"gradient\""))
+        assertTrue(jsonStr.contains("\"channel\":\"rg\""))
+        assertTrue(jsonStr.contains("\"min\":-10.0"))
+        assertTrue(jsonStr.contains("\"max\":45.0"))
+        assertTrue(jsonStr.contains("\"smooth\":false"))
+        assertTrue(jsonStr.contains("\"opacity\":0.8"))
+
+        val deserialized = com.maptiler.maptilersdk.helpers.JsonConfig.json.decodeFromString<MTColoringFragment>(jsonStr)
+        assertTrue(deserialized is MTGradientColoringFragment)
+        val gradient = deserialized as MTGradientColoringFragment
+        assertEquals("rg", gradient.decode.channel)
+        assertEquals(-10.0, gradient.decode.min, 0.0)
+        assertEquals(45.0, gradient.decode.max, 0.0)
+        assertEquals(2, gradient.stops.size)
+        assertEquals(0.0, gradient.stops[0].value, 0.0)
+        assertEquals(255, gradient.stops[1].color[0])
+    }
+
+    @Test
+    fun testWeatherLayerWithColoring() {
+        val layer = MTTemperatureLayer(identifier = "temp-coloring-test")
+        val decode = MTDecoderOptions("r", 0.0, 100.0)
+        val stops =
+            listOf(
+                com.maptiler.maptilerweather.colorramp.MTWeatherColorRampStop(0.0, listOf(0, 0, 0, 255)),
+            )
+        val coloringFragment = MTGradientColoringFragment(decode, stops)
+        layer.coloring(coloringFragment)
+
+        val jsonStr =
+            com.maptiler.maptilersdk.helpers.JsonConfig.json.encodeToString(
+                MTWeatherLayer.serializer(),
+                layer,
+            )
+        assertTrue(jsonStr.contains("\"coloring\":{\"decode\":{\"channel\":\"r\",\"min\":0.0,\"max\":100.0}"))
+    }
 }
