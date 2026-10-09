@@ -124,6 +124,13 @@ open class MTWeatherLayer(
     var colorRamp: MTWeatherColorRamp? = null
 
     /**
+     * Coloring fragment used to represent the weather data.
+     * This is a more advanced way to specify coloring, including the data decoder.
+     */
+    @SerialName("coloring")
+    var coloring: MTColoringFragment? = null
+
+    /**
      * Time for which to display the weather data.
      */
     var time: Long? = null
@@ -374,6 +381,14 @@ open class MTWeatherLayer(
      */
     fun colorRamp(value: MTWeatherColorRamp): MTWeatherLayer {
         this.colorRamp = value
+        return this
+    }
+
+    /**
+     * Modifier. Sets the coloring fragment.
+     */
+    fun coloring(value: MTColoringFragment): MTWeatherLayer {
+        this.coloring = value
         return this
     }
 }

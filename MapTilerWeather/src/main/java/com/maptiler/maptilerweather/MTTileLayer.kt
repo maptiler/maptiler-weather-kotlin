@@ -8,17 +8,23 @@ package com.maptiler.maptilerweather
 
 import com.maptiler.maptilersdk.bridge.MTCommand
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 import java.util.Date
 
 /**
  * The TileLayer is the base class for weather layers that consist of multiple timeframes smoothly animated over time.
  */
-open class MTTileLayer(
-    identifier: String,
-    sourceIdentifier: String = "",
-) : MTWeatherLayer(identifier, sourceIdentifier) {
+@Serializable
+open class MTTileLayer : MTWeatherLayer {
     override val jsClassName: String
         get() = "TileLayer"
+
+    constructor() : super("", "")
+
+    constructor(
+        identifier: String,
+        sourceIdentifier: String = "",
+    ) : super(identifier, sourceIdentifier)
 
     /**
      * Adds a new timeframe/frame to the animation.
