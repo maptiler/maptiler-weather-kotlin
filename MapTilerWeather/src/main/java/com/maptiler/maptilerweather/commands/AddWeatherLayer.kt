@@ -53,6 +53,12 @@ internal data class AddWeatherLayer(
                         options.colorramp = new weatherNS.ColorRamp(options.colorramp);
                     }
 
+                    if (options.coloring) {
+                        if (options.coloring.type === 'gradient') {
+                            options.coloring = new weatherNS.GradientColoringFragment(options.coloring);
+                        }
+                    }
+
                     // Remove properties not expected by the weather layer options
                     delete options.type;
                     delete options.source;

@@ -6,6 +6,7 @@
 
 package com.maptiler.maptilerweather
 
+import com.maptiler.maptilersdk.bridge.MTBridgeReturnType
 import com.maptiler.maptilersdk.map.MTMapViewController
 import com.maptiler.maptilersdk.map.style.layer.MTLayer
 import com.maptiler.maptilersdk.map.style.layer.MTLayerType
@@ -13,6 +14,9 @@ import com.maptiler.maptilersdk.map.style.layer.MTLayerVisibility
 import com.maptiler.maptilerweather.colorramp.MTWeatherColorRamp
 import com.maptiler.maptilerweather.commands.AddWeatherLayer
 import com.maptiler.maptilerweather.commands.RemoveWeatherLayer
+import com.maptiler.maptilerweather.commands.WeatherCommandArgument
+import com.maptiler.maptilerweather.commands.WeatherLayerMethodCommand
+import com.maptiler.maptilerweather.commands.WeatherLayerValueCommand
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
 import kotlinx.serialization.SerialName
@@ -22,6 +26,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import java.util.Collections
+import java.util.Date
 import java.util.WeakHashMap
 
 /**
@@ -198,6 +203,185 @@ open class MTWeatherLayer(
     @Transient
     private val pendingPickAtRequests = java.util.concurrent.ConcurrentHashMap<String, CompletableDeferred<JsonObject?>>()
 
+    // MARK: - Animation & Methods
+
+    /**
+     * Sets the opacity at which the weather data will be drawn.
+     *
+     * @param opacity Opacity value between 0.0 and 1.0.
+     */
+    fun setOpacity(opacity: Double) {
+        this.opacity = opacity
+        executeMethod("setOpacity", listOf(WeatherCommandArgument.DoubleArg(opacity)))
+    }
+
+    /**
+     * Sets the animation time in seconds.
+     *
+     * @param time Timestamp in seconds.
+     */
+    fun setAnimationTime(time: Double) {
+        this.time = (time * 1000).toLong()
+        executeMethod("setAnimationTime", listOf(WeatherCommandArgument.DoubleArg(time)))
+    }
+
+    /**
+     * Sets the animation time using a [Date].
+     *
+     * @param date Date object.
+     */
+    fun setAnimationTime(date: Date) {
+        setAnimationTime(date.time / 1000.0)
+    }
+
+    /**
+     * Animates the layer at a speed of [timePerSecond] seconds of weather animation per real-world second.
+     * Pass 0 to pause animation.
+     *
+     * @param timePerSecond Seconds of animation per second.
+     */
+    fun animate(timePerSecond: Double) {
+        executeMethod("animate", listOf(WeatherCommandArgument.DoubleArg(timePerSecond)))
+    }
+
+    /**
+     * Animates the layer multiplied by a speed factor.
+     *
+     * @param factor Speed factor.
+     */
+    fun animateByFactor(factor: Double) {
+        executeMethod("animateByFactor", listOf(WeatherCommandArgument.DoubleArg(factor)))
+    }
+
+    /**
+     * Gets the start time of the animation sequence in seconds.
+     *
+     * @return Start timestamp in seconds, or null if unavailable.
+     */
+    suspend fun getAnimationStart(): Double? = getDoubleValue("getAnimationStart")
+
+    /**
+     * Gets the start date of the animation sequence.
+     *
+     * @return Start date, or null if unavailable.
+     */
+    suspend fun getAnimationStartDate(): Date? = getDateValue("getAnimationStart")
+
+    /**
+     * Gets the end time of the animation sequence in seconds.
+     *
+     * @return End timestamp in seconds, or null if unavailable.
+     */
+    suspend fun getAnimationEnd(): Double? = getDoubleValue("getAnimationEnd")
+
+    /**
+     * Gets the end date of the animation sequence.
+     *
+     * @return End date, or null if unavailable.
+     */
+    suspend fun getAnimationEndDate(): Date? = getDateValue("getAnimationEnd")
+
+    /**
+     * Gets the current animation time in seconds.
+     *
+     * @return Current animation time in seconds, or null if unavailable.
+     */
+    suspend fun getAnimationTime(): Double? = getDoubleValue("getAnimationTime")
+
+    /**
+     * Gets the current animation date.
+     *
+     * @return Current animation date, or null if unavailable.
+     */
+    suspend fun getAnimationTimeDate(): Date? = getDateValue("getAnimationTime")
+
+    /**
+     * Gets the current animation speed factor.
+     *
+     * @return Speed factor, or null if unavailable.
+     */
+    suspend fun getAnimationSpeed(): Double? = getDoubleValue("getAnimationSpeed")
+
+    /**
+     * Sets whether repaint is enabled when animation is paused.
+     *
+     * @param enabled True to enable repaint on paused animation.
+     */
+    fun setRepaintOnPausedAnimation(enabled: Boolean) {
+        this.repaintOnPausedAnimation = enabled
+        executeMethod("setRepaintOnPausedAnimation", listOf(WeatherCommandArgument.BoolArg(enabled)))
+    }
+
+    /**
+     * Sets whether time interpolation is enabled.
+     *
+     * @param enabled True to enable time interpolation.
+     */
+    fun setTimeInterpolation(enabled: Boolean) {
+        this.timeInterpolation = enabled
+        executeMethod("setTimeInterpolation", listOf(WeatherCommandArgument.BoolArg(enabled)))
+    }
+
+    /**
+     * Sets whether local smoothing is enabled.
+     *
+     * @param enabled True to enable local smoothing.
+     */
+    fun setLocalSmoothing(enabled: Boolean) {
+        this.localSmoothing = enabled
+        executeMethod("setLocalSmoothing", listOf(WeatherCommandArgument.BoolArg(enabled)))
+    }
+
+    /**
+     * Checks whether the layer animation is currently playing.
+     *
+     * @return True if animation is playing, false if paused, or null if unavailable.
+     */
+    suspend fun isPlaying(): Boolean? = getBoolValue("isPlaying")
+
+    private fun executeMethod(
+        methodName: String,
+        arguments: List<WeatherCommandArgument>,
+    ) {
+        val controller = this.controller ?: return
+        controller.scope?.launch {
+            val command = WeatherLayerMethodCommand(identifier, methodName, arguments)
+            controller.execute(command)
+        }
+    }
+
+    private suspend fun getDoubleValue(methodName: String): Double? {
+        val controller = this.controller ?: return null
+        val command = WeatherLayerValueCommand(identifier, methodName)
+        val result = controller.execute(command)
+        return when (result) {
+            is MTBridgeReturnType.DoubleValue -> result.value
+            is MTBridgeReturnType.StringValue -> result.value.trim('"').toDoubleOrNull()
+            else -> null
+        }
+    }
+
+    private suspend fun getDateValue(methodName: String): Date? {
+        val timestamp = getDoubleValue(methodName) ?: return null
+        if (timestamp.isInfinite() || timestamp.isNaN()) return null
+        return Date((timestamp * 1000).toLong())
+    }
+
+    private suspend fun getBoolValue(methodName: String): Boolean? {
+        val controller = this.controller ?: return null
+        val command = WeatherLayerValueCommand(identifier, methodName)
+        val result = controller.execute(command)
+        return when (result) {
+            is MTBridgeReturnType.BoolValue -> result.value
+            is MTBridgeReturnType.DoubleValue -> result.value != 0.0
+            is MTBridgeReturnType.StringValue -> {
+                val str = result.value.trim('"').lowercase()
+                str.toBooleanStrictOrNull() ?: (str.toDoubleOrNull()?.let { it != 0.0 })
+            }
+            else -> null
+        }
+    }
+
     /**
      * Picks weather data at a specific location.
      *
@@ -373,6 +557,118 @@ open class MTWeatherLayer(
      */
     fun smooth(value: Boolean): MTWeatherLayer {
         this.smooth = value
+        return this
+    }
+
+    /**
+     * Modifier. Sets the repaintOnPausedAnimation property.
+     */
+    fun repaintOnPausedAnimation(value: Boolean): MTWeatherLayer {
+        this.repaintOnPausedAnimation = value
+        return this
+    }
+
+    /**
+     * Modifier. Sets the timeInterpolation property.
+     */
+    fun timeInterpolation(value: Boolean): MTWeatherLayer {
+        this.timeInterpolation = value
+        return this
+    }
+
+    /**
+     * Modifier. Sets the localSmoothing property.
+     */
+    fun localSmoothing(value: Boolean): MTWeatherLayer {
+        this.localSmoothing = value
+        return this
+    }
+
+    /**
+     * Modifier. Sets the number of smoothing bins.
+     */
+    fun nbSmoothingBins(value: Int): MTWeatherLayer {
+        this.nbSmoothingBins = value
+        return this
+    }
+
+    /**
+     * Modifier. Sets the maximum smoothing distance.
+     */
+    fun maxSmoothingDistance(value: Double): MTWeatherLayer {
+        this.maxSmoothingDistance = value
+        return this
+    }
+
+    /**
+     * Modifier. Sets the smoothing distance decay factor.
+     */
+    fun smoothingDistanceDecayFactor(value: Double): MTWeatherLayer {
+        this.smoothingDistanceDecayFactor = value
+        return this
+    }
+
+    /**
+     * Modifier. Sets loadLowerZoomLevels property.
+     */
+    fun loadLowerZoomLevels(value: Boolean): MTWeatherLayer {
+        this.loadLowerZoomLevels = value
+        return this
+    }
+
+    /**
+     * Modifier. Sets renderTransparentArea property.
+     */
+    fun renderTransparentArea(value: Boolean): MTWeatherLayer {
+        this.renderTransparentArea = value
+        return this
+    }
+
+    /**
+     * Modifier. Sets visibility.
+     */
+    fun visibility(value: MTLayerVisibility): MTWeatherLayer {
+        this.visibility = value
+        return this
+    }
+
+    /**
+     * Modifier. Sets time in milliseconds.
+     */
+    fun time(value: Long): MTWeatherLayer {
+        this.time = value
+        return this
+    }
+
+    /**
+     * Modifier. Sets time using a Date.
+     */
+    fun time(value: Date): MTWeatherLayer {
+        this.time = value.time
+        return this
+    }
+
+    /**
+     * Modifier. Sets maxZoom.
+     */
+    fun maxZoom(value: Double): MTWeatherLayer {
+        this.maxZoom = value
+        return this
+    }
+
+    /**
+     * Modifier. Sets minZoom.
+     */
+    fun minZoom(value: Double): MTWeatherLayer {
+        this.minZoom = value
+        return this
+    }
+
+    /**
+     * Modifier. Sets beforeId.
+     */
+    fun beforeId(value: String?): MTWeatherLayer {
+        this.beforeId = value
         return this
     }
 

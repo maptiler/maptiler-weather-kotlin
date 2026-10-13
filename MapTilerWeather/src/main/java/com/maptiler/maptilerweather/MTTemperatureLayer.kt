@@ -16,7 +16,7 @@ import kotlinx.serialization.json.jsonPrimitive
  */
 class MTTemperatureLayer(
     identifier: String = "MapTiler Temperature",
-    var customColorRamp: MTWeatherColorRamp = MTWeatherColorRamp(MTWeatherColorRampPreset.TEMPERATURE_TURBO),
+    var customColorRamp: MTWeatherColorRamp = MTWeatherColorRamp(MTWeatherColorRampPreset.TEMPERATURE_2),
     var customOpacity: Double = 1.0,
     var customSmooth: Boolean = true,
 ) : MTIntensityLayer(identifier) {

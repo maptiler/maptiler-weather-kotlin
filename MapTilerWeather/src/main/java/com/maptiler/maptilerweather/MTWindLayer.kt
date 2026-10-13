@@ -20,15 +20,9 @@ class MTWindLayer(
     var customColorRamp: MTWeatherColorRamp = MTWeatherColorRamp(MTWeatherColorRampPreset.WIND_VIRIDIS),
     var customOpacity: Double = 1.0,
     var customSmooth: Boolean = true,
-) : MTTileLayer(identifier) {
+) : MTParticleLayer(identifier, customColorRamp, customOpacity, customSmooth) {
     override val jsClassName: String
         get() = "WindLayer"
-
-    init {
-        this.colorRamp = customColorRamp
-        this.opacity = customOpacity
-        this.smooth = customSmooth
-    }
 
     /**
      * Picks wind data at a specific location.
