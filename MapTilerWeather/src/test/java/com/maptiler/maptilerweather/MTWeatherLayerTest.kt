@@ -513,4 +513,155 @@ class MTWeatherLayerTest {
             )
         assertTrue(jsonStr.contains("\"coloring\":{\"decode\":{\"channel\":\"r\",\"min\":0.0,\"max\":100.0}"))
     }
+
+    @Test
+    fun testWeatherLayerAnimationMethods() =
+        runBlocking {
+            val mockController = mockk<MTMapViewController>(relaxed = true)
+            val testScope = CoroutineScope(Dispatchers.Unconfined)
+            every { mockController.scope } returns testScope
+
+            val layer = MTTemperatureLayer(identifier = "test-anim-methods")
+            layer.controller = mockController
+
+            val capturedCommands = mutableListOf<com.maptiler.maptilersdk.bridge.MTCommand>()
+            every { runBlocking { mockController.execute(capture(capturedCommands)) } } returns mockk()
+
+            layer.setOpacity(0.75)
+            layer.setAnimationTime(1700000000.0)
+            layer.setAnimationTime(java.util.Date(1700000000000L))
+            layer.animate(3600.0)
+            layer.animateByFactor(2.0)
+            layer.setRepaintOnPausedAnimation(false)
+            layer.setTimeInterpolation(false)
+            layer.setLocalSmoothing(false)
+
+            assertEquals(8, capturedCommands.size)
+
+            val jsSetOpacity = capturedCommands[0].toJS()
+            assertTrue(jsSetOpacity.contains("layer.setOpacity(0.75)"))
+
+            val jsSetAnimTime = capturedCommands[1].toJS()
+            assertTrue(jsSetAnimTime.contains("layer.setAnimationTime("))
+
+            val jsAnimate = capturedCommands[3].toJS()
+            assertTrue(jsAnimate.contains("layer.animate(3600.0)"))
+
+            val jsAnimateByFactor = capturedCommands[4].toJS()
+            assertTrue(jsAnimateByFactor.contains("layer.animateByFactor(2.0)"))
+
+            val jsRepaint = capturedCommands[5].toJS()
+            assertTrue(jsRepaint.contains("layer.setRepaintOnPausedAnimation(false)"))
+
+            val jsInterpolation = capturedCommands[6].toJS()
+            assertTrue(jsInterpolation.contains("layer.setTimeInterpolation(false)"))
+
+            val jsSmoothing = capturedCommands[7].toJS()
+            assertTrue(jsSmoothing.contains("layer.setLocalSmoothing(false)"))
+        }
+
+    @Test
+    fun testWeatherLayerGetters() =
+        runBlocking {
+            val mockController = mockk<MTMapViewController>(relaxed = true)
+            val testScope = CoroutineScope(Dispatchers.Unconfined)
+            every { mockController.scope } returns testScope
+
+            val layer = MTTemperatureLayer(identifier = "test-getters")
+            layer.controller = mockController
+
+            val capturedCommands = mutableListOf<com.maptiler.maptilersdk.bridge.MTCommand>()
+            every {
+                runBlocking {
+                    mockController.execute(capture(capturedCommands))
+                }
+            } returns com.maptiler.maptilersdk.bridge.MTBridgeReturnType.DoubleValue(1700000000.0)
+
+            val animStart = layer.getAnimationStart()
+            assertEquals(1700000000.0, animStart ?: 0.0, 0.0)
+
+            val animStartDate = layer.getAnimationStartDate()
+            assertNotNull(animStartDate)
+            assertEquals(1700000000000L, animStartDate!!.time)
+
+            every {
+                runBlocking { mockController.execute(any()) }
+            } returns com.maptiler.maptilersdk.bridge.MTBridgeReturnType.BoolValue(true)
+            val isPlaying = layer.isPlaying()
+            assertEquals(true, isPlaying)
+        }
+
+    @Test
+    fun testWeatherLayerEvents() =
+        runBlocking {
+            val mockContext = mockk<Context>(relaxed = true)
+            val mockController = mockk<MTMapViewController>(relaxed = true)
+            val testScope = CoroutineScope(Dispatchers.Unconfined)
+            every { mockController.scope } returns testScope
+
+            val layer = MTTemperatureLayer(identifier = "test-layer-events")
+            var pauseTime: Double? = null
+            var tickTime: Double? = null
+            var animSetTime: Double? = null
+
+            layer.onPauseAnimation = { pauseTime = it }
+            layer.onTick = { tickTime = it }
+            layer.onAnimationTimeSet = { animSetTime = it }
+
+            val module = MapTilerWeatherModule(mockContext)
+            module.onAttach(mockController)
+
+            module.onMessageReceived("pauseAnimation", """{"layerId":"test-layer-events","time":100.0}""")
+            module.onMessageReceived("tick", """{"layerId":"test-layer-events","time":150.0}""")
+            module.onMessageReceived("animationTimeSet", """{"layerId":"test-layer-events","time":200.0}""")
+
+            assertEquals(100.0, pauseTime ?: 0.0, 0.0)
+            assertEquals(150.0, tickTime ?: 0.0, 0.0)
+            assertEquals(200.0, animSetTime ?: 0.0, 0.0)
+        }
+
+    @Test
+    fun testWeatherLayerDSLModifiers() {
+        val testDate = java.util.Date(1700000000000L)
+        val layer =
+            MTTemperatureLayer("test-dsl")
+                .repaintOnPausedAnimation(false)
+                .timeInterpolation(false)
+                .localSmoothing(false)
+                .nbSmoothingBins(12)
+                .maxSmoothingDistance(50.0)
+                .smoothingDistanceDecayFactor(0.5)
+                .loadLowerZoomLevels(true)
+                .renderTransparentArea(true)
+                .visibility(com.maptiler.maptilersdk.map.style.layer.MTLayerVisibility.NONE)
+                .time(testDate)
+                .maxZoom(10.0)
+                .minZoom(2.0)
+                .beforeId("water")
+
+        assertEquals(false, layer.repaintOnPausedAnimation)
+        assertEquals(false, layer.timeInterpolation)
+        assertEquals(false, layer.localSmoothing)
+        assertEquals(12, layer.nbSmoothingBins)
+        assertEquals(50.0, layer.maxSmoothingDistance ?: 0.0, 0.0)
+        assertEquals(0.5, layer.smoothingDistanceDecayFactor ?: 0.0, 0.0)
+        assertEquals(true, layer.loadLowerZoomLevels)
+        assertEquals(true, layer.renderTransparentArea)
+        assertEquals(com.maptiler.maptilersdk.map.style.layer.MTLayerVisibility.NONE, layer.visibility)
+        assertEquals(1700000000000L, layer.time)
+        assertEquals(10.0, layer.maxZoom ?: 0.0, 0.0)
+        assertEquals(2.0, layer.minZoom ?: 0.0, 0.0)
+        assertEquals("water", layer.beforeId)
+    }
+
+    @Test
+    fun testWindLayerInheritsFromParticleLayer() {
+        val windLayer = MTWindLayer("wind-particle-test")
+        val particleLayer: MTParticleLayer = windLayer
+
+        particleLayer.density(3.0).fastIsLarger(true).speed(0.002)
+        assertEquals(3.0, windLayer.density ?: 0.0, 0.0)
+        assertEquals(true, windLayer.fastIsLarger)
+        assertEquals(0.002, windLayer.speed ?: 0.0, 0.0)
+    }
 }

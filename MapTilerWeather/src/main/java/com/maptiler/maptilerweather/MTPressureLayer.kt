@@ -16,7 +16,7 @@ import kotlinx.serialization.json.jsonPrimitive
  */
 class MTPressureLayer(
     identifier: String = "MapTiler Pressure",
-    var customColorRamp: MTWeatherColorRamp = MTWeatherColorRamp(MTWeatherColorRampPreset.PRESSURE),
+    var customColorRamp: MTWeatherColorRamp = MTWeatherColorRamp(MTWeatherColorRampPreset.PRESSURE_2),
     var customOpacity: Double = 1.0,
     var customSmooth: Boolean = true,
 ) : MTIntensityLayer(identifier) {

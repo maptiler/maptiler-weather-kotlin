@@ -19,11 +19,11 @@ import kotlinx.serialization.Serializable
  * This layer serves as the base for particle-based animations, such as wind or ocean currents.
  */
 @Serializable
-open class MTParticleLayer : MTTileLayer {
+open class MTParticleLayer() : MTTileLayer("MapTiler ParticleLayer", "") {
     override val jsClassName: String
         get() = "ParticleLayer"
 
-    constructor() : super("MapTiler ParticleLayer", "") {
+    init {
         this.colorRamp = MTWeatherColorRamp(MTWeatherColorRampPreset.WIND_VIRIDIS)
         this.opacity = 1.0
         this.smooth = true
@@ -34,7 +34,8 @@ open class MTParticleLayer : MTTileLayer {
         customColorRamp: MTWeatherColorRamp = MTWeatherColorRamp(MTWeatherColorRampPreset.WIND_VIRIDIS),
         customOpacity: Double = 1.0,
         customSmooth: Boolean = true,
-    ) : super(identifier) {
+    ) : this() {
+        this.identifier = identifier
         this.colorRamp = customColorRamp
         this.opacity = customOpacity
         this.smooth = customSmooth

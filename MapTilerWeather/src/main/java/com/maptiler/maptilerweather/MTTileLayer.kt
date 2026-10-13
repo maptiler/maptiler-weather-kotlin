@@ -15,16 +15,17 @@ import java.util.Date
  * The TileLayer is the base class for weather layers that consist of multiple timeframes smoothly animated over time.
  */
 @Serializable
-open class MTTileLayer : MTWeatherLayer {
+open class MTTileLayer() : MTWeatherLayer("", "") {
     override val jsClassName: String
         get() = "TileLayer"
-
-    constructor() : super("", "")
 
     constructor(
         identifier: String,
         sourceIdentifier: String = "",
-    ) : super(identifier, sourceIdentifier)
+    ) : this() {
+        this.identifier = identifier
+        this.sourceIdentifier = sourceIdentifier
+    }
 
     /**
      * Adds a new timeframe/frame to the animation.
