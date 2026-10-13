@@ -68,10 +68,10 @@ import com.maptiler.maptilerweather.colorramp.MTWeatherColorRamp
 import com.maptiler.maptilerweather.colorramp.MTWeatherColorRampPreset
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
-import java.util.TimeZone
 
 val MapTilerBlue = Color(0xFF0088FF)
 val MapTilerBlueDark = Color(0xFF0066CC)
@@ -144,7 +144,7 @@ fun WeatherDemoApp() {
     var currentAnimTimeSec by remember { mutableStateOf<Double?>(null) }
     var animStartSec by remember { mutableStateOf<Double?>(null) }
     var animEndSec by remember { mutableStateOf<Double?>(null) }
-    var selectedSpeedFactor by remember { mutableStateOf(3.0) }
+    var selectedSpeedFactor by remember { mutableStateOf(1.0) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         MTMapView(
@@ -436,155 +436,171 @@ fun WeatherDemoApp() {
             }
 
             // Animation Control Bar Card
-            Card(
+            AnimationControlBar(
+                isPlaying = isPlaying,
+                onPlayPauseToggle = {
+                    val layer = currentActiveLayer ?: return@AnimationControlBar
+                    if (isPlaying) {
+                        layer.animate(0.0)
+                        isPlaying = false
+                    } else {
+                        layer.animate(3600.0 * selectedSpeedFactor)
+                        isPlaying = true
+                    }
+                },
+                currentAnimTimeProvider = { currentAnimTimeSec },
+                animStartSec = animStartSec,
+                animEndSec = animEndSec,
+                selectedSpeedFactor = selectedSpeedFactor,
+                onSpeedFactorSelected = { factor ->
+                    selectedSpeedFactor = factor
+                    if (isPlaying) {
+                        currentActiveLayer?.animate(3600.0 * factor)
+                    }
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun AnimationControlBar(
+    isPlaying: Boolean,
+    onPlayPauseToggle: () -> Unit,
+    currentAnimTimeProvider: () -> Double?,
+    animStartSec: Double?,
+    animEndSec: Double?,
+    selectedSpeedFactor: Double,
+    onSpeedFactorSelected: (Double) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            // Row 1: Play/Pause, Timestamp
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
+                // Play / Pause Button
+                Button(
+                    onClick = onPlayPauseToggle,
+                    colors = ButtonDefaults.buttonColors(containerColor = MapTilerBlue),
+                    contentPadding = ButtonDefaults.ContentPadding
                 ) {
-                    // Row 1: Play/Pause, Timestamp
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        // Play / Pause Button
+                    Text(
+                        text = if (isPlaying) "⏸ Pause" else "▶ Play",
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                // Formatted Date & Time Header
+                val currentAnimTimeSec = currentAnimTimeProvider()
+                Text(
+                    text = formatTimestamp(currentAnimTimeSec),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Speed Control Buttons (0.5x, 1x, 2x)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                Text(
+                    text = "Speed:",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                listOf(0.5, 1.0, 2.0).forEach { factor ->
+                    val label = if (factor < 1.0) "${factor}x" else "${factor.toInt()}x"
+                    val isSelected = selectedSpeedFactor == factor
+                    if (isSelected) {
                         Button(
-                            onClick = {
-                                val layer = currentActiveLayer ?: return@Button
-                                if (isPlaying) {
-                                    layer.animate(0.0)
-                                    isPlaying = false
-                                } else {
-                                    layer.animate(3600.0 * selectedSpeedFactor)
-                                    isPlaying = true
-                                }
-                            },
+                            onClick = { onSpeedFactorSelected(factor) },
                             colors = ButtonDefaults.buttonColors(containerColor = MapTilerBlue),
-                            contentPadding = ButtonDefaults.ContentPadding
+                            modifier = Modifier.height(36.dp)
                         ) {
-                            Text(
-                                text = if (isPlaying) "⏸ Pause" else "▶ Play",
-                                fontWeight = FontWeight.Bold
-                            )
+                            Text(label, fontSize = 12.sp)
                         }
-
-                        // Formatted Date & Time Header
-                        Text(
-                            text = formatTimestamp(currentAnimTimeSec),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(horizontal = 8.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Speed Control Buttons (1x, 3x, 6x, 12x)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        Text(
-                            text = "Speed:",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        listOf(1.0, 3.0, 6.0, 12.0).forEach { factor ->
-                            val label = "${factor.toInt()}x"
-                            val isSelected = selectedSpeedFactor == factor
-                            if (isSelected) {
-                                Button(
-                                    onClick = {
-                                        selectedSpeedFactor = factor
-                                        if (isPlaying) {
-                                            currentActiveLayer?.animate(3600.0 * factor)
-                                        }
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = MapTilerBlue),
-                                    modifier = Modifier.height(36.dp)
-                                ) {
-                                    Text(label, fontSize = 12.sp)
-                                }
-                            } else {
-                                OutlinedButton(
-                                    onClick = {
-                                        selectedSpeedFactor = factor
-                                        if (isPlaying) {
-                                            currentActiveLayer?.animate(3600.0 * factor)
-                                        }
-                                    },
-                                    modifier = Modifier.height(36.dp)
-                                ) {
-                                    Text(label, fontSize = 12.sp, color = MapTilerBlue)
-                                }
-                            }
-                        }
-                    }
-
-                    val start = animStartSec
-                    val end = animEndSec
-                    if (start != null && end != null && end > start) {
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        val current = currentAnimTimeSec ?: start
-                        val progressFloat = ((current - start) / (end - start)).toFloat().coerceIn(0f, 1f)
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
+                    } else {
+                        OutlinedButton(
+                            onClick = { onSpeedFactorSelected(factor) },
+                            modifier = Modifier.height(36.dp)
                         ) {
-                            Text(
-                                text = formatShortTime(start),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-
-                            LinearProgressIndicator(
-                                progress = { progressFloat },
-                                color = MapTilerBlue,
-                                trackColor = MapTilerBlueContainer,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(6.dp)
-                                    .padding(horizontal = 8.dp)
-                            )
-
-                            Text(
-                                text = formatShortTime(end),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Text(label, fontSize = 12.sp, color = MapTilerBlue)
                         }
                     }
+                }
+            }
+
+            val start = animStartSec
+            val end = animEndSec
+            if (start != null && end != null && end > start) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                val currentAnimTimeSec = currentAnimTimeProvider()
+                val current = currentAnimTimeSec ?: start
+                val progressFloat = ((current - start) / (end - start)).toFloat().coerceIn(0f, 1f)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = formatShortTime(start),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    LinearProgressIndicator(
+                        progress = { progressFloat },
+                        color = MapTilerBlue,
+                        trackColor = MapTilerBlueContainer,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(6.dp)
+                            .padding(horizontal = 8.dp)
+                    )
+
+                    Text(
+                        text = formatShortTime(end),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
     }
 }
 
+private val timestampFormatter = DateTimeFormatter.ofPattern("MMM d, HH:mm 'UTC'", Locale.US)
+    .withZone(ZoneId.of("UTC"))
+
+private val shortTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.US)
+    .withZone(ZoneId.of("UTC"))
+
 private fun formatTimestamp(timestampSec: Double?): String {
     if (timestampSec == null || timestampSec.isNaN() || timestampSec <= 0) return "Loading..."
-    val date = Date((timestampSec * 1000).toLong())
-    val sdf = SimpleDateFormat("MMM d, HH:mm 'UTC'", Locale.US).apply {
-        timeZone = TimeZone.getTimeZone("UTC")
-    }
-    return sdf.format(date)
+    return timestampFormatter.format(Instant.ofEpochSecond(timestampSec.toLong()))
 }
 
 private fun formatShortTime(timestampSec: Double?): String {
     if (timestampSec == null || timestampSec.isNaN() || timestampSec <= 0) return "--:--"
-    val date = Date((timestampSec * 1000).toLong())
-    val sdf = SimpleDateFormat("HH:mm", Locale.US).apply {
-        timeZone = TimeZone.getTimeZone("UTC")
-    }
-    return sdf.format(date)
+    return shortTimeFormatter.format(Instant.ofEpochSecond(timestampSec.toLong()))
 }
