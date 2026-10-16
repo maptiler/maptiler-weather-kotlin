@@ -9,6 +9,7 @@ package com.maptiler.maptilerweather
 import com.maptiler.maptilersdk.bridge.MTCommand
 import com.maptiler.maptilerweather.colorramp.MTWeatherColorRamp
 import com.maptiler.maptilerweather.colorramp.MTWeatherColorRampPreset
+import com.maptiler.maptilerweather.commands.AddWeatherLayer
 import kotlinx.coroutines.launch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -239,18 +240,7 @@ open class MTParticleLayer() : MTTileLayer("MapTiler ParticleLayer", "") {
                                     
                                     var newLayer = new window.maptilerweather.ParticleLayer(options);
                                     
-                                    var events = ['sourceReady', 'playAnimation', 'pauseAnimation', 'tick', 'animationTimeSet'];
-                                    events.forEach(function(eventName) {
-                                        newLayer.on(eventName, function(e) {
-                                            if (window.Android && window.Android.onModuleEvent) {
-                                                var data = { layerId: "${this@MTParticleLayer.identifier}" };
-                                                if (e && e.time !== undefined) {
-                                                    data.time = e.time;
-                                                }
-                                                window.Android.onModuleEvent("maptiler-weather", eventName, JSON.stringify(data));
-                                            }
-                                        });
-                                    });
+                                    ${AddWeatherLayer.eventForwardingJS("newLayer", this@MTParticleLayer.identifier)}
                                     
                                     var beforeId = ${if (beforeId != null) "'$beforeId'" else "undefined"};
                                     map.addLayer(newLayer, beforeId);

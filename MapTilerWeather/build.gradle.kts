@@ -110,7 +110,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("androidx.work:work-runtime-ktx:2.10.0")
 
-    implementation("com.maptiler:maptiler-sdk-kotlin:2.2.1")
+    implementation("com.maptiler:maptiler-sdk-kotlin:2.2.2")
 }
 
 // Generate a javadoc jar from Dokka HTML output (required by Maven Central)

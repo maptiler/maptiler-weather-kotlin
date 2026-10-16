@@ -178,7 +178,7 @@ open class MTWeatherLayer(
     var onPauseAnimation: ((Double) -> Unit)? = null
 
     /**
-     * Called for each animation update, possibly many times per second. Provides the timestamp in seconds.
+     * Called during animation, at most every 50 ms (20 times per second). Provides the timestamp in seconds.
      *
      * **Thread Safety Warning:** This callback runs on the **Main (UI) thread** to allow safe and
      * synchronized UI updates. Because it fires at a high frequency, performing heavy computations or
