@@ -76,19 +76,7 @@ internal data class AddWeatherLayer(
                     }
 
                     var layer = new weatherNS.${layer.jsClassName}(options);
-                    
-                    var events = ['sourceReady', 'playAnimation', 'pauseAnimation', 'tick', 'animationTimeSet'];
-                    events.forEach(function(eventName) {
-                        layer.on(eventName, function(e) {
-                            if (window.Android && window.Android.onModuleEvent) {
-                                var data = { layerId: "${layer.identifier}" };
-                                if (e && e.time !== undefined) {
-                                    data.time = e.time;
-                                }
-                                window.Android.onModuleEvent("maptiler-weather", eventName, JSON.stringify(data));
-                            }
-                        });
-                    });
+                    ${eventForwardingJS("layer", layer.identifier)}
 
                     ${MTBridge.MAP_OBJECT}.addLayer(layer, before);
                 }
@@ -98,6 +86,40 @@ internal data class AddWeatherLayer(
     }
 
     companion object {
+        /**
+         * Minimum interval between `tick` events forwarded to Kotlin.
+         *
+         * `@JavascriptInterface` calls are synchronous and block the WebView's JS thread,
+         * so forwarding every animation frame starves rendering while frames are still loading.
+         */
+        private const val TICK_FORWARD_INTERVAL_MS = 50
+
+        /**
+         * JS that forwards the weather layer events of [layerVar] to the Android bridge.
+         */
+        internal fun eventForwardingJS(
+            layerVar: String,
+            layerId: String,
+        ): String =
+            """
+            var lastTickForwardTime = 0;
+            ['sourceReady', 'playAnimation', 'pauseAnimation', 'tick', 'animationTimeSet'].forEach(function(eventName) {
+                $layerVar.on(eventName, function(e) {
+                    if (!window.Android || !window.Android.onModuleEvent) return;
+                    if (eventName === 'tick') {
+                        var now = performance.now();
+                        if (now - lastTickForwardTime < $TICK_FORWARD_INTERVAL_MS) return;
+                        lastTickForwardTime = now;
+                    }
+                    var data = { layerId: "$layerId" };
+                    if (e && e.time !== undefined) {
+                        data.time = e.time;
+                    }
+                    window.Android.onModuleEvent("maptiler-weather", eventName, JSON.stringify(data));
+                });
+            });
+            """
+
         private const val BEFORE_ID_JS_SNIPPET = """
         (function() {
             if (${MTBridge.MAP_OBJECT}.getLayer('Water')) return 'Water';

@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,8 +29,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -56,6 +55,7 @@ import com.maptiler.maptilersdk.map.MTMapViewController
 import com.maptiler.maptilersdk.map.MTMapViewDelegate
 import com.maptiler.maptilersdk.map.options.MTEventLevel
 import com.maptiler.maptilersdk.map.style.MTMapReferenceStyle
+import com.maptiler.maptilersdk.map.style.MTMapStyleVariant
 import com.maptiler.maptilersdk.map.types.MTData
 import com.maptiler.maptilerweather.MTPrecipitationLayer
 import com.maptiler.maptilerweather.MTPressureLayer
@@ -64,8 +64,6 @@ import com.maptiler.maptilerweather.MTTemperatureLayer
 import com.maptiler.maptilerweather.MTWeatherLayer
 import com.maptiler.maptilerweather.MTWindLayer
 import com.maptiler.maptilerweather.MapTilerWeatherModule
-import com.maptiler.maptilerweather.colorramp.MTWeatherColorRamp
-import com.maptiler.maptilerweather.colorramp.MTWeatherColorRampPreset
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -128,7 +126,7 @@ fun WeatherDemoApp() {
         MTMapOptions(
             center = LngLat(9.0, 48.0),
             zoom = 3.0,
-            eventLevel = MTEventLevel.ALL,
+            eventLevel = MTEventLevel.ESSENTIAL,
         )
     }
 
@@ -141,48 +139,114 @@ fun WeatherDemoApp() {
 
     // Animation state
     var isPlaying by remember { mutableStateOf(false) }
-    var currentAnimTimeSec by remember { mutableStateOf<Double?>(null) }
+    val currentAnimTimeState = remember { mutableStateOf<Double?>(null) }
     var animStartSec by remember { mutableStateOf<Double?>(null) }
     var animEndSec by remember { mutableStateOf<Double?>(null) }
     var selectedSpeedFactor by remember { mutableStateOf(1.0) }
+
+    // Recording / Clean UI State
+    var isUiHidden by remember { mutableStateOf(false) }
+    var showRecordingHint by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showRecordingHint) {
+        if (showRecordingHint) {
+            delay(1500)
+            showRecordingHint = false
+        }
+    }
+
+    fun clearPickedData() {
+        pickedValue = null
+        pickedLocation = null
+        currentMarker?.let { controller.style?.removeMarker(it) }
+        currentMarker = null
+    }
+
+    fun setPlaying(playing: Boolean) {
+        val layer = currentActiveLayer ?: return
+        layer.animateByFactor(if (playing) 3600.0 * selectedSpeedFactor else 0.0)
+        isPlaying = playing
+    }
+
+    fun startRecordingMode() {
+        clearPickedData()
+        if (!isPlaying) setPlaying(true)
+        isUiHidden = true
+        showRecordingHint = true
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         MTMapView(
             modifier = Modifier.fillMaxSize(),
             referenceStyle = MTMapReferenceStyle.DATAVIZ,
+            styleVariant = MTMapStyleVariant.LIGHT,
             options = options,
             controller = controller,
         )
 
-        // Layer Selector Dropdown at top
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 32.dp),
-            contentAlignment = Alignment.TopCenter
-        ) {
-            Button(
-                onClick = { expanded = true },
-                colors = ButtonDefaults.buttonColors(containerColor = MapTilerBlue)
+        if (!isUiHidden) {
+            // Layer Selector Dropdown & Record Button at top
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 32.dp),
+                contentAlignment = Alignment.TopCenter
             ) {
-                Text(selectedExample.title)
-                Icon(
-                    imageVector = Icons.Default.ArrowDropDown,
-                    contentDescription = null,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = { expanded = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = MapTilerBlue)
+                    ) {
+                        Text(selectedExample.title)
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = null,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Button(
+                        onClick = ::startRecordingMode,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
+                    ) {
+                        Text("🔴 Record", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    ExampleType.values().forEach { example ->
+                        DropdownMenuItem(
+                            text = { Text(example.title) },
+                            onClick = {
+                                selectedExample = example
+                                expanded = false
+                            }
+                        )
+                    }
+                }
             }
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false }
+        } else if (showRecordingHint) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 40.dp),
+                contentAlignment = Alignment.TopCenter
             ) {
-                ExampleType.values().forEach { example ->
-                    DropdownMenuItem(
-                        text = { Text(example.title) },
-                        onClick = {
-                            selectedExample = example
-                            expanded = false
-                        }
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.75f)),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
+                ) {
+                    Text(
+                        text = "Tap map to restore UI",
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
                 }
             }
@@ -200,6 +264,12 @@ fun WeatherDemoApp() {
                     }
 
                     if (event == MTEvent.ON_TAP) {
+                        if (isUiHidden) {
+                            isUiHidden = false
+                            showRecordingHint = false
+                            return
+                        }
+
                         val coordinate = data?.coordinate
                         val activeLayer = currentActiveLayer
 
@@ -260,105 +330,39 @@ fun WeatherDemoApp() {
             if (!isMapReady) return@LaunchedEffect
 
             // Remove previous active layer
-            currentActiveLayer?.let {
-                it.removeFrom(controller)
-            }
+            currentActiveLayer?.removeFrom(controller)
 
             // Clear picked data when changing examples
-            pickedValue = null
-            pickedLocation = null
-            currentMarker?.let {
-                controller.style?.removeMarker(it)
-                currentMarker = null
-            }
+            clearPickedData()
 
             // Reset animation state variables
             animStartSec = null
             animEndSec = null
-            currentAnimTimeSec = null
+            currentAnimTimeState.value = null
             isPlaying = false
 
             // Instantiate layer
             val newLayer = when (selectedExample) {
-                ExampleType.PRECIPITATION -> {
-                    MTPrecipitationLayer()
-                        .opacity(0.8)
-                        .colorRamp(MTWeatherColorRamp(MTWeatherColorRampPreset.PRECIPITATION))
-                }
-                ExampleType.PRESSURE -> {
-                    MTPressureLayer()
-                        .opacity(0.8)
-                        .colorRamp(MTWeatherColorRamp(MTWeatherColorRampPreset.PRESSURE))
-                }
-                ExampleType.RADAR -> {
-                    MTRadarLayer()
-                        .opacity(0.8)
-                        .colorRamp(MTWeatherColorRamp(MTWeatherColorRampPreset.RADAR))
-                }
-                ExampleType.TEMPERATURE -> {
-                    MTTemperatureLayer()
-                        .opacity(0.8)
-                        .colorRamp(MTWeatherColorRamp(MTWeatherColorRampPreset.TEMPERATURE_TURBO))
-                }
-                ExampleType.WIND -> {
-                    MTWindLayer()
-                        .opacity(0.8)
-                        .colorRamp(MTWeatherColorRamp(MTWeatherColorRampPreset.WIND_VIRIDIS))
-                }
+                ExampleType.PRECIPITATION -> MTPrecipitationLayer()
+                ExampleType.PRESSURE -> MTPressureLayer()
+                ExampleType.RADAR -> MTRadarLayer()
+                ExampleType.TEMPERATURE -> MTTemperatureLayer()
+                ExampleType.WIND -> MTWindLayer()
             }
 
             // Register animation callbacks
-            newLayer.onPlayAnimation = { time ->
-                isPlaying = true
-                currentAnimTimeSec = time
-            }
-            newLayer.onPauseAnimation = { time ->
-                isPlaying = false
-                currentAnimTimeSec = time
-            }
-            newLayer.onTick = { time ->
-                currentAnimTimeSec = time
-            }
-            newLayer.onAnimationTimeSet = { time ->
-                currentAnimTimeSec = time
-            }
-
-            val syncAnimationMetaData: suspend () -> Unit = {
-                val start = newLayer.getAnimationStart()
-                val end = newLayer.getAnimationEnd()
-                val current = newLayer.getAnimationTime()
-                val playing = newLayer.isPlaying()
-
-                if (start != null && end != null) {
-                    animStartSec = start
-                    animEndSec = end
-                }
-                if (current != null) {
-                    currentAnimTimeSec = current
-                }
-                if (playing != null) {
-                    isPlaying = playing
-                }
-            }
-
             newLayer.onSourceReady = {
                 controller.scope?.launch {
-                    syncAnimationMetaData()
+                    animStartSec = newLayer.getAnimationStart()
+                    animEndSec = newLayer.getAnimationEnd()
+                    currentAnimTimeState.value = newLayer.getAnimationTime()
                 }
             }
+            newLayer.onTick = { time -> currentAnimTimeState.value = time }
+            newLayer.onAnimationTimeSet = { time -> currentAnimTimeState.value = time }
 
             newLayer.addTo(controller)
             currentActiveLayer = newLayer
-
-            // Poll for metadata in case source ready fired early
-            controller.scope?.launch {
-                repeat(5) {
-                    if (animStartSec == null || animEndSec == null) {
-                        syncAnimationMetaData()
-                        delay(400)
-                    }
-                }
-            }
         }
 
         DisposableEffect(controller) {
@@ -368,97 +372,79 @@ fun WeatherDemoApp() {
         }
 
         // Bottom Controls Container
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = 24.dp, start = 16.dp, end = 16.dp),
-            verticalArrangement = Arrangement.Bottom
-        ) {
-            // Floating Card to display picked weather details (if tapped on map)
-            if (pickedValue != null && pickedLocation != null) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-                ) {
-                    Row(
+        if (!isUiHidden) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = 24.dp, start = 16.dp, end = 16.dp),
+                verticalArrangement = Arrangement.Bottom
+            ) {
+                // Floating Card to display picked weather details (if tapped on map)
+                if (pickedValue != null && pickedLocation != null) {
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(bottom = 12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = selectedExample.title.uppercase(),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MapTilerBlue,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = pickedValue!!,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = String.format(
-                                    Locale.US,
-                                    "Lat: %.4f, Lng: %.4f",
-                                    pickedLocation!!.lat,
-                                    pickedLocation!!.lng
-                                ),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                            )
-                        }
-                        IconButton(
-                            onClick = {
-                                pickedValue = null
-                                pickedLocation = null
-                                currentMarker?.let {
-                                    controller.style?.removeMarker(it)
-                                    currentMarker = null
-                                }
-                            }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Close"
-                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = selectedExample.title.uppercase(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MapTilerBlue,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = pickedValue!!,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = String.format(
+                                        Locale.US,
+                                        "Lat: %.4f, Lng: %.4f",
+                                        pickedLocation!!.lat,
+                                        pickedLocation!!.lng
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                )
+                            }
+                            IconButton(onClick = ::clearPickedData) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Close"
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            // Animation Control Bar Card
-            AnimationControlBar(
-                isPlaying = isPlaying,
-                onPlayPauseToggle = {
-                    val layer = currentActiveLayer ?: return@AnimationControlBar
-                    if (isPlaying) {
-                        layer.animate(0.0)
-                        isPlaying = false
-                    } else {
-                        layer.animate(3600.0 * selectedSpeedFactor)
-                        isPlaying = true
+                // Animation Control Bar Card
+                AnimationControlBar(
+                    isPlaying = isPlaying,
+                    onPlayPauseToggle = { setPlaying(!isPlaying) },
+                    currentAnimTimeProvider = { currentAnimTimeState.value },
+                    animStartSec = animStartSec,
+                    animEndSec = animEndSec,
+                    selectedSpeedFactor = selectedSpeedFactor,
+                    onSpeedFactorSelected = { factor ->
+                        selectedSpeedFactor = factor
+                        if (isPlaying) setPlaying(true)
                     }
-                },
-                currentAnimTimeProvider = { currentAnimTimeSec },
-                animStartSec = animStartSec,
-                animEndSec = animEndSec,
-                selectedSpeedFactor = selectedSpeedFactor,
-                onSpeedFactorSelected = { factor ->
-                    selectedSpeedFactor = factor
-                    if (isPlaying) {
-                        currentActiveLayer?.animate(3600.0 * factor)
-                    }
-                }
-            )
+                )
+            }
         }
     }
 }
@@ -504,14 +490,7 @@ fun AnimationControlBar(
                 }
 
                 // Formatted Date & Time Header
-                val currentAnimTimeSec = currentAnimTimeProvider()
-                Text(
-                    text = formatTimestamp(currentAnimTimeSec),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(horizontal = 8.dp)
-                )
+                CurrentTimeText(currentAnimTimeProvider = currentAnimTimeProvider)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -524,26 +503,28 @@ fun AnimationControlBar(
             ) {
                 Text(
                     text = "Speed:",
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                listOf(0.5, 1.0, 2.0).forEach { factor ->
+                listOf(0.5, 1.0, 2.0, 4.0, 8.0, 10.0).forEach { factor ->
                     val label = if (factor < 1.0) "${factor}x" else "${factor.toInt()}x"
                     val isSelected = selectedSpeedFactor == factor
                     if (isSelected) {
                         Button(
                             onClick = { onSpeedFactorSelected(factor) },
                             colors = ButtonDefaults.buttonColors(containerColor = MapTilerBlue),
-                            modifier = Modifier.height(36.dp)
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            modifier = Modifier.height(32.dp)
                         ) {
-                            Text(label, fontSize = 12.sp)
+                            Text(label, fontSize = 11.sp)
                         }
                     } else {
                         OutlinedButton(
                             onClick = { onSpeedFactorSelected(factor) },
-                            modifier = Modifier.height(36.dp)
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            modifier = Modifier.height(32.dp)
                         ) {
-                            Text(label, fontSize = 12.sp, color = MapTilerBlue)
+                            Text(label, fontSize = 11.sp, color = MapTilerBlue)
                         }
                     }
                 }
@@ -553,10 +534,6 @@ fun AnimationControlBar(
             val end = animEndSec
             if (start != null && end != null && end > start) {
                 Spacer(modifier = Modifier.height(12.dp))
-
-                val currentAnimTimeSec = currentAnimTimeProvider()
-                val current = currentAnimTimeSec ?: start
-                val progressFloat = ((current - start) / (end - start)).toFloat().coerceIn(0f, 1f)
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -569,7 +546,10 @@ fun AnimationControlBar(
                     )
 
                     LinearProgressIndicator(
-                        progress = { progressFloat },
+                        progress = {
+                            val current = currentAnimTimeProvider() ?: start
+                            ((current - start) / (end - start)).toFloat().coerceIn(0f, 1f)
+                        },
                         color = MapTilerBlue,
                         trackColor = MapTilerBlueContainer,
                         modifier = Modifier
@@ -587,6 +567,18 @@ fun AnimationControlBar(
             }
         }
     }
+}
+
+@Composable
+private fun CurrentTimeText(currentAnimTimeProvider: () -> Double?) {
+    val currentAnimTimeSec = currentAnimTimeProvider()
+    Text(
+        text = formatTimestamp(currentAnimTimeSec),
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.padding(horizontal = 8.dp)
+    )
 }
 
 private val timestampFormatter = DateTimeFormatter.ofPattern("MMM d, HH:mm 'UTC'", Locale.US)
