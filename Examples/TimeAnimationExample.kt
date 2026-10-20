@@ -1,9 +1,27 @@
 package com.maptiler.examples
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -18,7 +36,6 @@ import com.maptiler.maptilerweather.MTTemperatureLayer
 import com.maptiler.maptilerweather.MapTilerWeatherModule
 import com.maptiler.maptilerweather.colorramp.MTWeatherColorRamp
 import com.maptiler.maptilerweather.colorramp.MTWeatherColorRampPreset
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -54,21 +71,10 @@ fun TimeAnimationExample() {
         MTTemperatureLayer()
             .opacity(0.85)
             .colorRamp(MTWeatherColorRamp(MTWeatherColorRampPreset.TEMPERATURE_TURBO))
+            .timeInterpolation(true)
     }
 
     val dateFormatter = remember { SimpleDateFormat("EEE, d MMM HH:mm", Locale.getDefault()) }
-
-    // Periodically sync animation time state from controller
-    LaunchedEffect(isPlaying) {
-        while (true) {
-            coroutineScope.launch {
-                if (startDate == null) startDate = layer.getAnimationStartDate()
-                if (endDate == null) endDate = layer.getAnimationEndDate()
-                currentDate = layer.getAnimationTimeDate()
-            }
-            delay(250)
-        }
-    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         MTMapView(
@@ -139,6 +145,23 @@ fun TimeAnimationExample() {
     }
 
     LaunchedEffect(Unit) {
+        layer.onSourceReady = {
+            coroutineScope.launch {
+                startDate = layer.getAnimationStartDate()
+                endDate = layer.getAnimationEndDate()
+                val initialTime = layer.getAnimationTime()
+                if (initialTime != null) {
+                    currentDate = Date((initialTime * 1000).toLong())
+                }
+            }
+        }
+        layer.onTick = { timestampSec ->
+            currentDate = Date((timestampSec * 1000).toLong())
+        }
+        layer.onAnimationTimeSet = { timestampSec ->
+            currentDate = Date((timestampSec * 1000).toLong())
+        }
+
         layer.addTo(controller)
     }
 }

@@ -348,7 +348,7 @@ fun WeatherDemoApp() {
                 ExampleType.RADAR -> MTRadarLayer()
                 ExampleType.TEMPERATURE -> MTTemperatureLayer()
                 ExampleType.WIND -> MTWindLayer()
-            }
+            }.timeInterpolation(true)
 
             // Register animation callbacks
             newLayer.onSourceReady = {
@@ -506,7 +506,7 @@ fun AnimationControlBar(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                listOf(0.5, 1.0, 2.0, 4.0, 8.0, 10.0).forEach { factor ->
+                listOf(0.5, 1.0, 2.0, 4.0, 8.0).forEach { factor ->
                     val label = if (factor < 1.0) "${factor}x" else "${factor.toInt()}x"
                     val isSelected = selectedSpeedFactor == factor
                     if (isSelected) {
