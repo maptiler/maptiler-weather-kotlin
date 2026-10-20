@@ -44,6 +44,16 @@ class MTPrecipitationLayer(
         val value = result["value"]?.jsonPrimitive?.doubleOrNull ?: return null
         return MTPrecipitationValue(value = value)
     }
+
+    override fun opacity(value: Double): MTPrecipitationLayer = super.opacity(value) as MTPrecipitationLayer
+
+    override fun smooth(value: Boolean): MTPrecipitationLayer = super.smooth(value) as MTPrecipitationLayer
+
+    override fun timeInterpolation(value: Boolean): MTPrecipitationLayer = super.timeInterpolation(value) as MTPrecipitationLayer
+
+    override fun colorRamp(value: MTWeatherColorRamp): MTPrecipitationLayer = super.colorRamp(value) as MTPrecipitationLayer
+
+    override fun beforeId(value: String?): MTPrecipitationLayer = super.beforeId(value) as MTPrecipitationLayer
 }
 
 /**

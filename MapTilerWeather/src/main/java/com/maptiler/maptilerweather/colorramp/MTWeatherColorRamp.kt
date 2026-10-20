@@ -18,7 +18,7 @@ data class MTWeatherColorRamp(
     constructor(stops: List<MTWeatherColorRampStop>, min: Double? = null, max: Double? = null) : this(
         min = min ?: stops.minOfOrNull { it.value } ?: 0.0,
         max = max ?: stops.maxOfOrNull { it.value } ?: 1.0,
-        stops = stops.sortedBy { it.value },
+        stops = stops.map { it.copy(color = it.color.toList()) }.sortedBy { it.value },
     )
 
     /**

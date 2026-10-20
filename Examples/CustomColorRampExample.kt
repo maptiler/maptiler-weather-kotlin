@@ -1,6 +1,8 @@
 package com.maptiler.examples
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,7 +40,7 @@ fun CustomColorRampExample() {
         }
     }
 
-    var selectedOption by remember { mutableStateOf(ColorRampOption.CUSTOM_HEATMAP) }
+    var selectedOption by remember { mutableStateOf(ColorRampOption.TURBO) }
     var isReversed by remember { mutableStateOf(false) }
 
     val customHeatmapRamp = remember {
@@ -63,10 +65,8 @@ fun CustomColorRampExample() {
             ColorRampOption.SPECTRAL -> MTWeatherColorRamp(MTWeatherColorRampPreset.TEMPERATURE_SPECTRAL)
             ColorRampOption.CUSTOM_HEATMAP -> customHeatmapRamp.clone()
         }
-        if (isReversed) {
-            baseRamp.reverse(clone = false)
-        }
-        layer.colorRamp(baseRamp)
+        val targetRamp = if (isReversed) baseRamp.reverse(clone = true) else baseRamp
+        layer.colorRamp(targetRamp)
     }
 
     val options = remember {
@@ -74,6 +74,10 @@ fun CustomColorRampExample() {
             center = LngLat(9.0, 48.0),
             zoom = 3.0
         )
+    }
+
+    LaunchedEffect(selectedOption, isReversed) {
+        applyColorRamp()
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -103,15 +107,15 @@ fun CustomColorRampExample() {
 
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
                 ) {
                     ColorRampOption.values().forEach { option ->
                         FilterChip(
                             selected = selectedOption == option,
-                            onClick = {
-                                selectedOption = option
-                                applyColorRamp()
-                            },
+                            onClick = { selectedOption = option },
                             label = { Text(option.label) }
                         )
                     }
@@ -125,10 +129,7 @@ fun CustomColorRampExample() {
                     Text("Reverse Ramp Direction", color = Color.White)
                     Switch(
                         checked = isReversed,
-                        onCheckedChange = { checked ->
-                            isReversed = checked
-                            applyColorRamp()
-                        }
+                        onCheckedChange = { checked -> isReversed = checked }
                     )
                 }
             }

@@ -222,6 +222,19 @@ enum class MTWeatherColorRampPreset(val stops: List<MTWeatherColorRampStop>) {
             MTWeatherColorRampStop(55.0, listOf(91, 11, 0, 255)),
         ),
     ),
+    TEMPERATURE_SPECTRAL(
+        listOf(
+            MTWeatherColorRampStop(-65.0, listOf(158, 1, 66, 255)),
+            MTWeatherColorRampStop(-40.0, listOf(213, 62, 79, 255)),
+            MTWeatherColorRampStop(-20.0, listOf(244, 109, 67, 255)),
+            MTWeatherColorRampStop(0.0, listOf(253, 174, 97, 255)),
+            MTWeatherColorRampStop(10.0, listOf(254, 224, 139, 255)),
+            MTWeatherColorRampStop(20.0, listOf(230, 245, 152, 255)),
+            MTWeatherColorRampStop(30.0, listOf(171, 221, 164, 255)),
+            MTWeatherColorRampStop(40.0, listOf(102, 194, 165, 255)),
+            MTWeatherColorRampStop(55.0, listOf(50, 136, 189, 255)),
+        ),
+    ),
     TEMPERATURE_TURBO(
         listOf(
             MTWeatherColorRampStop(-65.0, listOf(48, 18, 59, 255)),

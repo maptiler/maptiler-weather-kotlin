@@ -45,6 +45,16 @@ class MTTemperatureLayer(
         val valueImperial = result["valueImperial"]?.jsonPrimitive?.doubleOrNull ?: return null
         return MTTemperatureValue(value = value, valueImperial = valueImperial)
     }
+
+    override fun opacity(value: Double): MTTemperatureLayer = super.opacity(value) as MTTemperatureLayer
+
+    override fun smooth(value: Boolean): MTTemperatureLayer = super.smooth(value) as MTTemperatureLayer
+
+    override fun timeInterpolation(value: Boolean): MTTemperatureLayer = super.timeInterpolation(value) as MTTemperatureLayer
+
+    override fun colorRamp(value: MTWeatherColorRamp): MTTemperatureLayer = super.colorRamp(value) as MTTemperatureLayer
+
+    override fun beforeId(value: String?): MTTemperatureLayer = super.beforeId(value) as MTTemperatureLayer
 }
 
 /**

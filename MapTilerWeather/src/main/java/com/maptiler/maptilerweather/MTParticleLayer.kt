@@ -13,6 +13,8 @@ import com.maptiler.maptilerweather.commands.AddWeatherLayer
 import kotlinx.coroutines.launch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.serializer
 
 /**
  * A layer that displays animated particles for directional weather data.
@@ -106,10 +108,20 @@ open class MTParticleLayer() : MTTileLayer("MapTiler ParticleLayer", "") {
 
     // MARK: - DSL Modifiers
 
+    override fun opacity(value: Double): MTParticleLayer = super.opacity(value) as MTParticleLayer
+
+    override fun smooth(value: Boolean): MTParticleLayer = super.smooth(value) as MTParticleLayer
+
+    override fun timeInterpolation(value: Boolean): MTParticleLayer = super.timeInterpolation(value) as MTParticleLayer
+
+    override fun colorRamp(value: MTWeatherColorRamp): MTParticleLayer = super.colorRamp(value) as MTParticleLayer
+
+    override fun beforeId(value: String?): MTParticleLayer = super.beforeId(value) as MTParticleLayer
+
     /**
      * Modifier. Sets the color.
      */
-    fun color(value: MTRGBAColor): MTParticleLayer {
+    open fun color(value: MTRGBAColor): MTParticleLayer {
         this.color = value
         return this
     }
@@ -117,7 +129,7 @@ open class MTParticleLayer() : MTTileLayer("MapTiler ParticleLayer", "") {
     /**
      * Modifier. Sets the fastColor.
      */
-    fun fastColor(value: MTRGBAColor): MTParticleLayer {
+    open fun fastColor(value: MTRGBAColor): MTParticleLayer {
         this.fastColor = value
         return this
     }
@@ -125,7 +137,7 @@ open class MTParticleLayer() : MTTileLayer("MapTiler ParticleLayer", "") {
     /**
      * Modifier. Sets the density.
      */
-    fun density(value: Double): MTParticleLayer {
+    open fun density(value: Double): MTParticleLayer {
         this.density = value
         return this
     }
@@ -133,7 +145,7 @@ open class MTParticleLayer() : MTTileLayer("MapTiler ParticleLayer", "") {
     /**
      * Modifier. Sets the fadeFactor.
      */
-    fun fadeFactor(value: Double): MTParticleLayer {
+    open fun fadeFactor(value: Double): MTParticleLayer {
         this.fadeFactor = value
         return this
     }
@@ -141,7 +153,7 @@ open class MTParticleLayer() : MTTileLayer("MapTiler ParticleLayer", "") {
     /**
      * Modifier. Sets the fastSpeed.
      */
-    fun fastSpeed(value: Double): MTParticleLayer {
+    open fun fastSpeed(value: Double): MTParticleLayer {
         this.fastSpeed = value
         return this
     }
@@ -149,7 +161,7 @@ open class MTParticleLayer() : MTTileLayer("MapTiler ParticleLayer", "") {
     /**
      * Modifier. Sets the maxAmount.
      */
-    fun maxAmount(value: Int): MTParticleLayer {
+    open fun maxAmount(value: Int): MTParticleLayer {
         this.maxAmount = value
         return this
     }
@@ -157,7 +169,7 @@ open class MTParticleLayer() : MTTileLayer("MapTiler ParticleLayer", "") {
     /**
      * Modifier. Sets the pixelRatio.
      */
-    fun pixelRatio(value: Double): MTParticleLayer {
+    open fun pixelRatio(value: Double): MTParticleLayer {
         this.pixelRatio = value
         return this
     }
@@ -165,7 +177,7 @@ open class MTParticleLayer() : MTTileLayer("MapTiler ParticleLayer", "") {
     /**
      * Modifier. Sets the refreshInterval.
      */
-    fun refreshInterval(value: Double): MTParticleLayer {
+    open fun refreshInterval(value: Double): MTParticleLayer {
         this.refreshInterval = value
         return this
     }
@@ -173,7 +185,7 @@ open class MTParticleLayer() : MTTileLayer("MapTiler ParticleLayer", "") {
     /**
      * Modifier. Sets the size.
      */
-    fun size(value: Double): MTParticleLayer {
+    open fun size(value: Double): MTParticleLayer {
         this.size = value
         return this
     }
@@ -181,7 +193,7 @@ open class MTParticleLayer() : MTTileLayer("MapTiler ParticleLayer", "") {
     /**
      * Modifier. Sets the speed.
      */
-    fun speed(value: Double): MTParticleLayer {
+    open fun speed(value: Double): MTParticleLayer {
         this.speed = value
         return this
     }
@@ -189,7 +201,7 @@ open class MTParticleLayer() : MTTileLayer("MapTiler ParticleLayer", "") {
     /**
      * Modifier. Sets the fastIsLarger.
      */
-    fun fastIsLarger(value: Boolean): MTParticleLayer {
+    open fun fastIsLarger(value: Boolean): MTParticleLayer {
         this.fastIsLarger = value
         return this
     }
@@ -209,48 +221,41 @@ open class MTParticleLayer() : MTTileLayer("MapTiler ParticleLayer", "") {
                     override fun toJS(): String {
                         val layerJSONString =
                             com.maptiler.maptilersdk.helpers.JsonConfig.json.encodeToString(
-                                serializer(),
+                                MTParticleLayer.serializer(),
                                 this@MTParticleLayer,
                             )
                         return """
                             (function() {
+                                var weatherNS = window.maptilerweather;
                                 var styleLayer = map.getLayer("${this@MTParticleLayer.identifier}");
                                 var layer = styleLayer ? (styleLayer.implementation || styleLayer) : null;
-                                if (layer && typeof layer.updateParticleOptions === 'function') {
-                                    var options = $layerJSONString;
-                                    if (options.colorramp) {
-                                        options.colorramp = new window.maptilerweather.ColorRamp(options.colorramp);
-                                    }
-                                    layer.updateParticleOptions(options);
-                                } else {
-                                    var currentTime = layer && typeof layer.getAnimationTime === 'function' ? layer.getAnimationTime() : null;
-                                    var currentSpeed = layer && typeof layer.getAnimationSpeed === 'function' ? layer.getAnimationSpeed() : null;
-                                    
-                                    if (styleLayer) {
-                                        map.removeLayer("${this@MTParticleLayer.identifier}");
-                                    }
-                                    
-                                    var options = $layerJSONString;
-                                    if (options.colorramp) {
-                                        options.colorramp = new window.maptilerweather.ColorRamp(options.colorramp);
-                                    }
-                                    delete options.type;
-                                    delete options.source;
-                                    delete options.visibility;
-                                    
-                                    var newLayer = new window.maptilerweather.ParticleLayer(options);
-                                    
-                                    ${AddWeatherLayer.eventForwardingJS("newLayer", this@MTParticleLayer.identifier)}
-                                    
-                                    var beforeId = ${if (beforeId != null) "'$beforeId'" else "undefined"};
-                                    map.addLayer(newLayer, beforeId);
-                                    
-                                    if (currentTime !== null && typeof newLayer.setAnimationTime === 'function') {
-                                        newLayer.setAnimationTime(currentTime);
-                                    }
-                                    if (currentSpeed !== null && typeof newLayer.animateByFactor === 'function') {
-                                        newLayer.animateByFactor(currentSpeed);
-                                    }
+                                var currentTime = layer && typeof layer.getAnimationTime === 'function' ? layer.getAnimationTime() : null;
+                                var currentSpeed = layer && typeof layer.getAnimationSpeed === 'function' ? layer.getAnimationSpeed() : null;
+                                
+                                if (styleLayer) {
+                                    map.removeLayer("${this@MTParticleLayer.identifier}");
+                                }
+                                
+                                var options = $layerJSONString;
+                                if (options.colorramp) {
+                                    options.colorramp = new weatherNS.ColorRamp(options.colorramp);
+                                }
+                                delete options.type;
+                                delete options.source;
+                                delete options.visibility;
+                                
+                                var newLayer = new weatherNS.${this@MTParticleLayer.jsClassName}(options);
+                                
+                                ${AddWeatherLayer.eventForwardingJS("newLayer", this@MTParticleLayer.identifier)}
+                                
+                                var beforeId = ${if (beforeId != null) "'$beforeId'" else "undefined"};
+                                map.addLayer(newLayer, beforeId);
+                                
+                                if (currentTime !== null && typeof newLayer.setAnimationTime === 'function') {
+                                    newLayer.setAnimationTime(currentTime);
+                                }
+                                if (currentSpeed !== null && typeof newLayer.animateByFactor === 'function') {
+                                    newLayer.animateByFactor(currentSpeed);
                                 }
                             })();
                             """.trimIndent()

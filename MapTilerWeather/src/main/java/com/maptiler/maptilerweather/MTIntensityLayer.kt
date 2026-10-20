@@ -6,6 +6,7 @@
 
 package com.maptiler.maptilerweather
 
+import com.maptiler.maptilerweather.colorramp.MTWeatherColorRamp
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -35,6 +36,16 @@ open class MTIntensityLayer(
         val value = result["value"]?.jsonPrimitive?.doubleOrNull ?: return null
         return MTIntensityValue(value = value)
     }
+
+    override fun opacity(value: Double): MTIntensityLayer = super.opacity(value) as MTIntensityLayer
+
+    override fun smooth(value: Boolean): MTIntensityLayer = super.smooth(value) as MTIntensityLayer
+
+    override fun timeInterpolation(value: Boolean): MTIntensityLayer = super.timeInterpolation(value) as MTIntensityLayer
+
+    override fun colorRamp(value: MTWeatherColorRamp): MTIntensityLayer = super.colorRamp(value) as MTIntensityLayer
+
+    override fun beforeId(value: String?): MTIntensityLayer = super.beforeId(value) as MTIntensityLayer
 }
 
 /**

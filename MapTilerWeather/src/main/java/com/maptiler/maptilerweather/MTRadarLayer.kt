@@ -44,6 +44,16 @@ class MTRadarLayer(
         val value = result["value"]?.jsonPrimitive?.doubleOrNull ?: return null
         return MTRadarValue(value = value)
     }
+
+    override fun opacity(value: Double): MTRadarLayer = super.opacity(value) as MTRadarLayer
+
+    override fun smooth(value: Boolean): MTRadarLayer = super.smooth(value) as MTRadarLayer
+
+    override fun timeInterpolation(value: Boolean): MTRadarLayer = super.timeInterpolation(value) as MTRadarLayer
+
+    override fun colorRamp(value: MTWeatherColorRamp): MTRadarLayer = super.colorRamp(value) as MTRadarLayer
+
+    override fun beforeId(value: String?): MTRadarLayer = super.beforeId(value) as MTRadarLayer
 }
 
 /**

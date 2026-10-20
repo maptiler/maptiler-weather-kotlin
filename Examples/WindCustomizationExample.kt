@@ -16,6 +16,7 @@ import com.maptiler.maptilersdk.map.style.MTMapReferenceStyle
 import com.maptiler.maptilerweather.MTRGBAColor
 import com.maptiler.maptilerweather.MTWindLayer
 import com.maptiler.maptilerweather.MapTilerWeatherModule
+import kotlinx.coroutines.delay
 import java.util.Locale
 
 /**
@@ -33,7 +34,6 @@ fun WindCustomizationExample() {
     var density by remember { mutableStateOf(2.0) }
     var particleSize by remember { mutableStateOf(1.5) }
     var speed by remember { mutableStateOf(0.001) }
-    var fadeFactor by remember { mutableStateOf(0.1) }
 
     val windLayer = remember {
         MTWindLayer()
@@ -47,6 +47,16 @@ fun WindCustomizationExample() {
             center = LngLat(9.0, 48.0),
             zoom = 3.0
         )
+    }
+
+    // Debounced live update to layer options to prevent UI thread / JS bridge overload on fast slider drags
+    LaunchedEffect(density, particleSize, speed) {
+        delay(80)
+        windLayer
+            .density(density)
+            .size(particleSize)
+            .speed(speed)
+            .updateParticleOptions()
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -81,10 +91,7 @@ fun WindCustomizationExample() {
                 )
                 Slider(
                     value = density.toFloat(),
-                    onValueChange = {
-                        density = it.toDouble()
-                        windLayer.density(density).updateParticleOptions()
-                    },
+                    onValueChange = { density = it.toDouble() },
                     valueRange = 0.5f..5.0f
                 )
 
@@ -95,10 +102,7 @@ fun WindCustomizationExample() {
                 )
                 Slider(
                     value = particleSize.toFloat(),
-                    onValueChange = {
-                        particleSize = it.toDouble()
-                        windLayer.size(particleSize).updateParticleOptions()
-                    },
+                    onValueChange = { particleSize = it.toDouble() },
                     valueRange = 0.5f..4.0f
                 )
 
@@ -109,10 +113,7 @@ fun WindCustomizationExample() {
                 )
                 Slider(
                     value = speed.toFloat(),
-                    onValueChange = {
-                        speed = it.toDouble()
-                        windLayer.speed(speed).updateParticleOptions()
-                    },
+                    onValueChange = { speed = it.toDouble() },
                     valueRange = 0.0002f..0.003f
                 )
             }

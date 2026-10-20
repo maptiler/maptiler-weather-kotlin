@@ -1,6 +1,8 @@
 package com.maptiler.examples
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,16 +30,16 @@ enum class BaseStyleOption(val title: String, val referenceStyle: MTMapReference
 @Composable
 fun LayerOrderingExample() {
     val context = LocalContext.current
-    val controller = remember {
+    var selectedStyle by remember { mutableStateOf(BaseStyleOption.DATAVIZ) }
+    var renderBehindLabels by remember { mutableStateOf(true) }
+
+    val controller = remember(selectedStyle) {
         MTMapViewController(context).apply {
             registerModule(MapTilerWeatherModule(context))
         }
     }
 
-    var selectedStyle by remember { mutableStateOf(BaseStyleOption.DATAVIZ) }
-    var renderBehindLabels by remember { mutableStateOf(true) }
-
-    val radarLayer = remember {
+    val radarLayer = remember(selectedStyle) {
         MTRadarLayer().opacity(0.85)
     }
 
@@ -53,12 +55,14 @@ fun LayerOrderingExample() {
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        MTMapView(
-            modifier = Modifier.fillMaxSize(),
-            referenceStyle = selectedStyle.referenceStyle,
-            options = options,
-            controller = controller,
-        )
+        key(selectedStyle) {
+            MTMapView(
+                modifier = Modifier.fillMaxSize(),
+                referenceStyle = selectedStyle.referenceStyle,
+                options = options,
+                controller = controller,
+            )
+        }
 
         Card(
             colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.85f)),
@@ -79,7 +83,10 @@ fun LayerOrderingExample() {
 
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
                 ) {
                     BaseStyleOption.values().forEach { option ->
                         FilterChip(
@@ -108,7 +115,7 @@ fun LayerOrderingExample() {
         }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(selectedStyle) {
         updateLayerOrdering()
         radarLayer.addTo(controller)
     }

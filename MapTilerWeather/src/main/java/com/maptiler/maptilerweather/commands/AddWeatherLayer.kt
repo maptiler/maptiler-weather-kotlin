@@ -65,14 +65,23 @@ internal data class AddWeatherLayer(
                     delete options.visibility;
 
                     var before = $beforeIdJS;
-
-                    // Adjust water opacity if inserting below water
-                    if (before === 'Water' || before === 'water') {
-                        try {
-                            ${MTBridge.MAP_OBJECT}.setPaintProperty(before, 'fill-color', 'rgba(0, 0, 0, 0.4)');
-                        } catch (e) {
-                            console.error('Failed to set water transparency', e);
+                    if (before && !${MTBridge.MAP_OBJECT}.getLayer(before)) {
+                        var styleObj = ${MTBridge.MAP_OBJECT}.getStyle();
+                        var styleLayers = styleObj ? styleObj.layers : [];
+                        before = undefined;
+                        for (var i = 0; i < styleLayers.length; i++) {
+                            if (styleLayers[i].type === 'symbol') {
+                                before = styleLayers[i].id;
+                                break;
+                            }
                         }
+                    }
+
+                    // Remove layer with same ID if already present
+                    if (${MTBridge.MAP_OBJECT}.getLayer("${layer.identifier}")) {
+                        try {
+                            ${MTBridge.MAP_OBJECT}.removeLayer("${layer.identifier}");
+                        } catch(e) {}
                     }
 
                     var layer = new weatherNS.${layer.jsClassName}(options);

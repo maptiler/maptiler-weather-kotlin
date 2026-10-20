@@ -53,6 +53,38 @@ class MTWindLayer(
             speedMilesPerHour = speedMilesPerHour,
         )
     }
+
+    override fun opacity(value: Double): MTWindLayer = super.opacity(value) as MTWindLayer
+
+    override fun smooth(value: Boolean): MTWindLayer = super.smooth(value) as MTWindLayer
+
+    override fun timeInterpolation(value: Boolean): MTWindLayer = super.timeInterpolation(value) as MTWindLayer
+
+    override fun colorRamp(value: MTWeatherColorRamp): MTWindLayer = super.colorRamp(value) as MTWindLayer
+
+    override fun beforeId(value: String?): MTWindLayer = super.beforeId(value) as MTWindLayer
+
+    override fun color(value: MTRGBAColor): MTWindLayer = super.color(value) as MTWindLayer
+
+    override fun fastColor(value: MTRGBAColor): MTWindLayer = super.fastColor(value) as MTWindLayer
+
+    override fun density(value: Double): MTWindLayer = super.density(value) as MTWindLayer
+
+    override fun fadeFactor(value: Double): MTWindLayer = super.fadeFactor(value) as MTWindLayer
+
+    override fun fastSpeed(value: Double): MTWindLayer = super.fastSpeed(value) as MTWindLayer
+
+    override fun maxAmount(value: Int): MTWindLayer = super.maxAmount(value) as MTWindLayer
+
+    override fun pixelRatio(value: Double): MTWindLayer = super.pixelRatio(value) as MTWindLayer
+
+    override fun refreshInterval(value: Double): MTWindLayer = super.refreshInterval(value) as MTWindLayer
+
+    override fun size(value: Double): MTWindLayer = super.size(value) as MTWindLayer
+
+    override fun speed(value: Double): MTWindLayer = super.speed(value) as MTWindLayer
+
+    override fun fastIsLarger(value: Boolean): MTWindLayer = super.fastIsLarger(value) as MTWindLayer
 }
 
 /**
