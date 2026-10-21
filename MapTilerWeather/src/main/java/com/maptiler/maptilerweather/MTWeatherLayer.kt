@@ -16,6 +16,7 @@ import com.maptiler.maptilerweather.colorramp.MTWeatherColorRamp
 import com.maptiler.maptilerweather.commands.AddWeatherLayer
 import com.maptiler.maptilerweather.commands.IsWeatherModuleLoaded
 import com.maptiler.maptilerweather.commands.RemoveWeatherLayer
+import com.maptiler.maptilerweather.commands.SetTickForwarding
 import com.maptiler.maptilerweather.commands.WeatherCommandArgument
 import com.maptiler.maptilerweather.commands.WeatherLayerMethodCommand
 import com.maptiler.maptilerweather.commands.WeatherLayerValueCommand
@@ -182,7 +183,7 @@ open class MTWeatherLayer(
     var onPauseAnimation: ((Double) -> Unit)? = null
 
     /**
-     * Called during animation, at most every 50 ms (20 times per second). Provides the timestamp in seconds.
+     * Called during animation, at most every 100 ms (10 times per second). Provides the timestamp in seconds.
      *
      * **Thread Safety Warning:** This callback runs on the **Main (UI) thread** to allow safe and
      * synchronized UI updates. Because it fires at a high frequency, performing heavy computations or
@@ -190,9 +191,21 @@ open class MTWeatherLayer(
      * will block the main thread and cause the map animation or UI to stutter. Any heavy or long-running tasks
      * must be explicitly offloaded to a background dispatcher (such as `Dispatchers.IO` or `Dispatchers.Default`)
      * using coroutines.
+     *
+     * Tick events are only sent from the map while this callback is set.
      */
     @Transient
     var onTick: ((Double) -> Unit)? = null
+        set(value) {
+            val forwardingChanged = (field == null) != (value == null)
+            field = value
+            if (forwardingChanged) {
+                val controller = this.controller ?: return
+                controller.scope?.launch {
+                    controller.execute(SetTickForwarding(identifier, value != null))
+                }
+            }
+        }
 
     /**
      * Called when the progress time of the animation is manually set with

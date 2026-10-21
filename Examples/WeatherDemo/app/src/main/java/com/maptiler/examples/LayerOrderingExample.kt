@@ -14,6 +14,7 @@ import com.maptiler.maptilersdk.map.LngLat
 import com.maptiler.maptilersdk.map.MTMapOptions
 import com.maptiler.maptilersdk.map.MTMapView
 import com.maptiler.maptilersdk.map.MTMapViewController
+import com.maptiler.maptilersdk.map.options.MTEventLevel
 import com.maptiler.maptilersdk.map.style.MTMapReferenceStyle
 import com.maptiler.maptilerweather.MTRadarLayer
 import com.maptiler.maptilerweather.MapTilerWeatherModule
@@ -54,7 +55,8 @@ fun LayerOrderingExample() {
     val options = remember {
         MTMapOptions(
             center = LngLat(9.0, 48.0),
-            zoom = 4.0
+            zoom = 4.0,
+            eventLevel = MTEventLevel.ESSENTIAL,
         )
     }
 

@@ -246,7 +246,8 @@ open class MTParticleLayer() : MTTileLayer("MapTiler ParticleLayer", "") {
                                 
                                 var newLayer = new weatherNS.${this@MTParticleLayer.jsClassName}(options);
                                 
-                                ${AddWeatherLayer.eventForwardingJS("newLayer", this@MTParticleLayer.identifier)}
+                                ${AddWeatherLayer.eventForwardingJS("newLayer", this@MTParticleLayer.identifier, onTick != null)}
+                                ${AddWeatherLayer.bufferedPlaybackJS("newLayer")}
                                 
                                 var beforeId = ${if (beforeId != null) "'$beforeId'" else AddWeatherLayer.BEFORE_ID_JS_SNIPPET};
                                 map.addLayer(newLayer, beforeId);

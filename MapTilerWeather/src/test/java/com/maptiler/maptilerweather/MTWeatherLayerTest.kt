@@ -8,6 +8,8 @@ package com.maptiler.maptilerweather
 
 import android.content.Context
 import com.maptiler.maptilersdk.map.MTMapViewController
+import com.maptiler.maptilerweather.commands.AddWeatherLayer
+import com.maptiler.maptilerweather.commands.SetTickForwarding
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -664,4 +666,56 @@ class MTWeatherLayerTest {
         assertEquals(true, windLayer.fastIsLarger)
         assertEquals(0.002, windLayer.speed ?: 0.0, 0.0)
     }
+
+    @Test
+    fun testAddWeatherLayerForwardsTickOnlyWithListener() {
+        val layer = MTTemperatureLayer(identifier = "test-tick-forwarding")
+
+        val withoutListener = AddWeatherLayer(layer).toJS()
+        assertTrue(withoutListener.contains("layer.${AddWeatherLayer.FORWARD_TICK_PROPERTY} = false;"))
+        assertTrue(withoutListener.contains("if (!layer.${AddWeatherLayer.FORWARD_TICK_PROPERTY}) return;"))
+
+        layer.onTick = {}
+        val withListener = AddWeatherLayer(layer).toJS()
+        assertTrue(withListener.contains("layer.${AddWeatherLayer.FORWARD_TICK_PROPERTY} = true;"))
+        assertTrue(withListener.contains("< ${AddWeatherLayer.TICK_FORWARD_INTERVAL_MS}) return;"))
+    }
+
+    @Test
+    fun testAddWeatherLayerInstallsBufferedPlayback() {
+        val js = AddWeatherLayer(MTTemperatureLayer(identifier = "test-buffering")).toJS()
+
+        assertTrue(js.contains("typeof l.animationTick !== 'function'"))
+        assertTrue(js.contains("l.animationTick = function()"))
+        assertTrue(js.contains("i <= ${AddWeatherLayer.PREFETCH_FRAMES_AHEAD}"))
+        assertTrue(js.contains("now - waitStart < ${AddWeatherLayer.MAX_BUFFER_HOLD_MS}"))
+        assertTrue(js.contains("})(layer);"))
+        // Buffering must be installed before the layer is added to the map.
+        assertTrue(js.indexOf("l.animationTick = function()") < js.indexOf("addLayer(layer, before)"))
+    }
+
+    @Test
+    fun testSettingOnTickTogglesForwarding() =
+        runBlocking {
+            val mockController = mockk<MTMapViewController>(relaxed = true)
+            every { mockController.scope } returns CoroutineScope(Dispatchers.Unconfined)
+            val capturedCommands = mutableListOf<com.maptiler.maptilersdk.bridge.MTCommand>()
+            every { runBlocking { mockController.execute(capture(capturedCommands)) } } returns mockk()
+
+            val layer = MTTemperatureLayer(identifier = "test-tick-toggle")
+            layer.controller = mockController
+
+            layer.onTick = {}
+            layer.onTick = {}
+            layer.onTick = null
+
+            assertEquals(
+                listOf(
+                    SetTickForwarding("test-tick-toggle", true),
+                    SetTickForwarding("test-tick-toggle", false),
+                ),
+                capturedCommands,
+            )
+            assertTrue(capturedCommands[0].toJS().contains("layer.${AddWeatherLayer.FORWARD_TICK_PROPERTY} = true;"))
+        }
 }
