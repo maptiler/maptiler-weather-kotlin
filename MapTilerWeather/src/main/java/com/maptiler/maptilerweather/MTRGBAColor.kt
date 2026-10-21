@@ -28,7 +28,12 @@ data class MTRGBAColor(
     val green: Int,
     val blue: Int,
     val alpha: Int = 255,
-)
+) {
+    val r: Int get() = red
+    val g: Int get() = green
+    val b: Int get() = blue
+    val a: Int get() = alpha
+}
 
 object MTRGBAColorSerializer : KSerializer<MTRGBAColor> {
     override val descriptor: SerialDescriptor = buildClassSerialDescriptor("MTRGBAColor")

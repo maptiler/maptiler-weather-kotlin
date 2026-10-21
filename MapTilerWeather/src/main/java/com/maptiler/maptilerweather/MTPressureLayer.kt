@@ -44,6 +44,16 @@ class MTPressureLayer(
         val value = result["value"]?.jsonPrimitive?.doubleOrNull ?: return null
         return MTPressureValue(value = value)
     }
+
+    override fun opacity(value: Double): MTPressureLayer = super.opacity(value) as MTPressureLayer
+
+    override fun smooth(value: Boolean): MTPressureLayer = super.smooth(value) as MTPressureLayer
+
+    override fun timeInterpolation(value: Boolean): MTPressureLayer = super.timeInterpolation(value) as MTPressureLayer
+
+    override fun colorRamp(value: MTWeatherColorRamp): MTPressureLayer = super.colorRamp(value) as MTPressureLayer
+
+    override fun beforeId(value: String?): MTPressureLayer = super.beforeId(value) as MTPressureLayer
 }
 
 /**

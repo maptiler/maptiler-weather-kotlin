@@ -6,6 +6,7 @@
 
 package com.maptiler.maptilerweather
 
+import android.util.Log
 import com.maptiler.maptilersdk.bridge.MTBridgeReturnType
 import com.maptiler.maptilersdk.map.MTMapViewController
 import com.maptiler.maptilersdk.map.style.layer.MTLayer
@@ -13,12 +14,16 @@ import com.maptiler.maptilersdk.map.style.layer.MTLayerType
 import com.maptiler.maptilersdk.map.style.layer.MTLayerVisibility
 import com.maptiler.maptilerweather.colorramp.MTWeatherColorRamp
 import com.maptiler.maptilerweather.commands.AddWeatherLayer
+import com.maptiler.maptilerweather.commands.IsWeatherModuleLoaded
 import com.maptiler.maptilerweather.commands.RemoveWeatherLayer
+import com.maptiler.maptilerweather.commands.SetTickForwarding
 import com.maptiler.maptilerweather.commands.WeatherCommandArgument
 import com.maptiler.maptilerweather.commands.WeatherLayerMethodCommand
 import com.maptiler.maptilerweather.commands.WeatherLayerValueCommand
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
@@ -178,7 +183,7 @@ open class MTWeatherLayer(
     var onPauseAnimation: ((Double) -> Unit)? = null
 
     /**
-     * Called during animation, at most every 50 ms (20 times per second). Provides the timestamp in seconds.
+     * Called during animation, at most every 100 ms (10 times per second). Provides the timestamp in seconds.
      *
      * **Thread Safety Warning:** This callback runs on the **Main (UI) thread** to allow safe and
      * synchronized UI updates. Because it fires at a high frequency, performing heavy computations or
@@ -186,9 +191,21 @@ open class MTWeatherLayer(
      * will block the main thread and cause the map animation or UI to stutter. Any heavy or long-running tasks
      * must be explicitly offloaded to a background dispatcher (such as `Dispatchers.IO` or `Dispatchers.Default`)
      * using coroutines.
+     *
+     * Tick events are only sent from the map while this callback is set.
      */
     @Transient
     var onTick: ((Double) -> Unit)? = null
+        set(value) {
+            val forwardingChanged = (field == null) != (value == null)
+            field = value
+            if (forwardingChanged) {
+                val controller = this.controller ?: return
+                controller.scope?.launch {
+                    controller.execute(SetTickForwarding(identifier, value != null))
+                }
+            }
+        }
 
     /**
      * Called when the progress time of the animation is manually set with
@@ -490,6 +507,13 @@ open class MTWeatherLayer(
          */
         internal val activeLayers: MutableSet<MTWeatherLayer> =
             Collections.synchronizedSet(Collections.newSetFromMap(WeakHashMap()))
+
+        /**
+         * Maximum number of readiness checks before giving up on adding a layer (at least 30 s in total).
+         */
+        private const val MODULE_WAIT_ATTEMPTS = 300
+
+        private const val MODULE_WAIT_INTERVAL_MS = 100L
     }
 
     init {
@@ -510,9 +534,37 @@ open class MTWeatherLayer(
     fun addTo(map: MTMapViewController) {
         this.controller = map
         map.scope?.launch {
+            if (!awaitWeatherModule(map)) {
+                Log.e(
+                    "MTWeatherLayer",
+                    "maptilerweather not found. Make sure MapTilerWeatherModule is registered on the controller.",
+                )
+                return@launch
+            }
             val command = AddWeatherLayer(this@MTWeatherLayer, beforeId)
             map.execute(command)
         }
+    }
+
+    /**
+     * Waits until the map page is loaded and the weather module is injected.
+     *
+     * Commands evaluated before the map page loads are discarded when the page navigates,
+     * so readiness is polled from Kotlin rather than inside the page.
+     */
+    private suspend fun awaitWeatherModule(map: MTMapViewController): Boolean {
+        repeat(MODULE_WAIT_ATTEMPTS) {
+            val result = withTimeoutOrNull(MODULE_WAIT_INTERVAL_MS) { map.execute(IsWeatherModuleLoaded) }
+            val isLoaded =
+                when (result) {
+                    is MTBridgeReturnType.BoolValue -> result.value
+                    is MTBridgeReturnType.StringValue -> result.value.trim('"') == "true"
+                    else -> false
+                }
+            if (isLoaded) return true
+            delay(MODULE_WAIT_INTERVAL_MS)
+        }
+        return false
     }
 
     /**
@@ -547,7 +599,7 @@ open class MTWeatherLayer(
     /**
      * Modifier. Sets the opacity.
      */
-    fun opacity(value: Double): MTWeatherLayer {
+    open fun opacity(value: Double): MTWeatherLayer {
         this.opacity = value
         return this
     }
@@ -555,7 +607,7 @@ open class MTWeatherLayer(
     /**
      * Modifier. Sets the smooth property.
      */
-    fun smooth(value: Boolean): MTWeatherLayer {
+    open fun smooth(value: Boolean): MTWeatherLayer {
         this.smooth = value
         return this
     }
@@ -563,7 +615,7 @@ open class MTWeatherLayer(
     /**
      * Modifier. Sets the repaintOnPausedAnimation property.
      */
-    fun repaintOnPausedAnimation(value: Boolean): MTWeatherLayer {
+    open fun repaintOnPausedAnimation(value: Boolean): MTWeatherLayer {
         this.repaintOnPausedAnimation = value
         return this
     }
@@ -571,7 +623,7 @@ open class MTWeatherLayer(
     /**
      * Modifier. Sets the timeInterpolation property.
      */
-    fun timeInterpolation(value: Boolean): MTWeatherLayer {
+    open fun timeInterpolation(value: Boolean): MTWeatherLayer {
         this.timeInterpolation = value
         return this
     }
@@ -579,7 +631,7 @@ open class MTWeatherLayer(
     /**
      * Modifier. Sets the localSmoothing property.
      */
-    fun localSmoothing(value: Boolean): MTWeatherLayer {
+    open fun localSmoothing(value: Boolean): MTWeatherLayer {
         this.localSmoothing = value
         return this
     }
@@ -587,7 +639,7 @@ open class MTWeatherLayer(
     /**
      * Modifier. Sets the number of smoothing bins.
      */
-    fun nbSmoothingBins(value: Int): MTWeatherLayer {
+    open fun nbSmoothingBins(value: Int): MTWeatherLayer {
         this.nbSmoothingBins = value
         return this
     }
@@ -595,7 +647,7 @@ open class MTWeatherLayer(
     /**
      * Modifier. Sets the maximum smoothing distance.
      */
-    fun maxSmoothingDistance(value: Double): MTWeatherLayer {
+    open fun maxSmoothingDistance(value: Double): MTWeatherLayer {
         this.maxSmoothingDistance = value
         return this
     }
@@ -603,7 +655,7 @@ open class MTWeatherLayer(
     /**
      * Modifier. Sets the smoothing distance decay factor.
      */
-    fun smoothingDistanceDecayFactor(value: Double): MTWeatherLayer {
+    open fun smoothingDistanceDecayFactor(value: Double): MTWeatherLayer {
         this.smoothingDistanceDecayFactor = value
         return this
     }
@@ -611,7 +663,7 @@ open class MTWeatherLayer(
     /**
      * Modifier. Sets loadLowerZoomLevels property.
      */
-    fun loadLowerZoomLevels(value: Boolean): MTWeatherLayer {
+    open fun loadLowerZoomLevels(value: Boolean): MTWeatherLayer {
         this.loadLowerZoomLevels = value
         return this
     }
@@ -619,7 +671,7 @@ open class MTWeatherLayer(
     /**
      * Modifier. Sets renderTransparentArea property.
      */
-    fun renderTransparentArea(value: Boolean): MTWeatherLayer {
+    open fun renderTransparentArea(value: Boolean): MTWeatherLayer {
         this.renderTransparentArea = value
         return this
     }
@@ -627,7 +679,7 @@ open class MTWeatherLayer(
     /**
      * Modifier. Sets visibility.
      */
-    fun visibility(value: MTLayerVisibility): MTWeatherLayer {
+    open fun visibility(value: MTLayerVisibility): MTWeatherLayer {
         this.visibility = value
         return this
     }
@@ -635,7 +687,7 @@ open class MTWeatherLayer(
     /**
      * Modifier. Sets time in milliseconds.
      */
-    fun time(value: Long): MTWeatherLayer {
+    open fun time(value: Long): MTWeatherLayer {
         this.time = value
         return this
     }
@@ -643,7 +695,7 @@ open class MTWeatherLayer(
     /**
      * Modifier. Sets time using a Date.
      */
-    fun time(value: Date): MTWeatherLayer {
+    open fun time(value: Date): MTWeatherLayer {
         this.time = value.time
         return this
     }
@@ -651,7 +703,7 @@ open class MTWeatherLayer(
     /**
      * Modifier. Sets maxZoom.
      */
-    fun maxZoom(value: Double): MTWeatherLayer {
+    open fun maxZoom(value: Double): MTWeatherLayer {
         this.maxZoom = value
         return this
     }
@@ -659,7 +711,7 @@ open class MTWeatherLayer(
     /**
      * Modifier. Sets minZoom.
      */
-    fun minZoom(value: Double): MTWeatherLayer {
+    open fun minZoom(value: Double): MTWeatherLayer {
         this.minZoom = value
         return this
     }
@@ -667,23 +719,64 @@ open class MTWeatherLayer(
     /**
      * Modifier. Sets beforeId.
      */
-    fun beforeId(value: String?): MTWeatherLayer {
+    open fun beforeId(value: String?): MTWeatherLayer {
         this.beforeId = value
+        val controller = this.controller
+        if (controller != null) {
+            controller.scope?.launch {
+                val beforeIdJS = if (value != null) "'$value'" else "undefined"
+                val command =
+                    object : com.maptiler.maptilersdk.bridge.MTCommand {
+                        override val isPrimitiveReturnType: Boolean = true
+
+                        override fun toJS(): String =
+                            """
+                            (function() {
+                                try {
+                                    var beforeTarget = $beforeIdJS;
+                                    if (beforeTarget && !map.getLayer(beforeTarget)) {
+                                        var styleObj = map.getStyle();
+                                        var styleLayers = styleObj ? styleObj.layers : [];
+                                        beforeTarget = undefined;
+                                        for (var i = 0; i < styleLayers.length; i++) {
+                                            if (styleLayers[i].type === 'symbol') {
+                                                beforeTarget = styleLayers[i].id;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    map.moveLayer("${this@MTWeatherLayer.identifier}", beforeTarget);
+                                } catch (e) {
+                                    console.error('Failed to move layer', e);
+                                }
+                            })();
+                            """.trimIndent()
+                    }
+                controller.execute(command)
+            }
+        }
         return this
     }
 
     /**
      * Modifier. Sets the color ramp.
      */
-    fun colorRamp(value: MTWeatherColorRamp): MTWeatherLayer {
+    open fun colorRamp(value: MTWeatherColorRamp): MTWeatherLayer {
         this.colorRamp = value
+        val controller = this.controller
+        if (controller != null) {
+            controller.scope?.launch {
+                val command = AddWeatherLayer(this@MTWeatherLayer, beforeId)
+                controller.execute(command)
+            }
+        }
         return this
     }
 
     /**
      * Modifier. Sets the coloring fragment.
      */
-    fun coloring(value: MTColoringFragment): MTWeatherLayer {
+    open fun coloring(value: MTColoringFragment): MTWeatherLayer {
         this.coloring = value
         return this
     }
