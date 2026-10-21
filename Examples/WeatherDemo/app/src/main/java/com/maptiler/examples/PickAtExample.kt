@@ -20,6 +20,7 @@ import com.maptiler.maptilersdk.map.options.MTEventLevel
 import com.maptiler.maptilersdk.map.style.MTMapReferenceStyle
 import com.maptiler.maptilersdk.map.types.MTData
 import com.maptiler.maptilerweather.MTTemperatureLayer
+import com.maptiler.maptilerweather.MapTilerWeatherModule
 import com.maptiler.maptilerweather.colorramp.MTWeatherColorRamp
 import com.maptiler.maptilerweather.colorramp.MTWeatherColorRampPreset
 import kotlinx.coroutines.launch
@@ -32,7 +33,11 @@ import kotlinx.coroutines.launch
 @Composable
 fun PickAtExample() {
     val context = LocalContext.current
-    val controller = remember { MTMapViewController(context) }
+    val controller = remember {
+        MTMapViewController(context).apply {
+            registerModule(MapTilerWeatherModule(context))
+        }
+    }
     val coroutineScope = rememberCoroutineScope()
 
     // State to hold picked temperature information

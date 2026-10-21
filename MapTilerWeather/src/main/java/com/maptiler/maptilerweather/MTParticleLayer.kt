@@ -248,7 +248,7 @@ open class MTParticleLayer() : MTTileLayer("MapTiler ParticleLayer", "") {
                                 
                                 ${AddWeatherLayer.eventForwardingJS("newLayer", this@MTParticleLayer.identifier)}
                                 
-                                var beforeId = ${if (beforeId != null) "'$beforeId'" else "undefined"};
+                                var beforeId = ${if (beforeId != null) "'$beforeId'" else AddWeatherLayer.BEFORE_ID_JS_SNIPPET};
                                 map.addLayer(newLayer, beforeId);
                                 
                                 if (currentTime !== null && typeof newLayer.setAnimationTime === 'function') {

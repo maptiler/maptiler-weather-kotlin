@@ -32,18 +32,10 @@ internal data class AddWeatherLayer(
 
         return """
             (function() {
-                function tryAddLayer(retries) {
+                function doAddLayer() {
                     var weatherNS = window.maptilerweather;
-
                     if (!weatherNS) {
-                        if (retries > 0) {
-                            setTimeout(function() { tryAddLayer(retries - 1); }, 100);
-                            return;
-                        }
-                        console.error(
-                            "MapTiler Weather: maptilerweather not found. " +
-                            "Make sure the module is correctly registered and loaded."
-                        );
+                        console.error("MapTiler Weather: maptilerweather not found.");
                         return;
                     }
 
@@ -89,7 +81,7 @@ internal data class AddWeatherLayer(
 
                     ${MTBridge.MAP_OBJECT}.addLayer(layer, before);
                 }
-                tryAddLayer(10);
+                doAddLayer();
             })();
             """.trimIndent()
     }
@@ -129,11 +121,13 @@ internal data class AddWeatherLayer(
             });
             """
 
-        private const val BEFORE_ID_JS_SNIPPET = """
+        /**
+         * JS expression resolving the default insertion point: above water, beneath borders and labels.
+         */
+        internal const val BEFORE_ID_JS_SNIPPET = """
         (function() {
-            if (${MTBridge.MAP_OBJECT}.getLayer('Water')) return 'Water';
-            if (${MTBridge.MAP_OBJECT}.getLayer('water')) return 'water';
-            var layers = ${MTBridge.MAP_OBJECT}.getStyle().layers;
+            var styleObj = ${MTBridge.MAP_OBJECT}.getStyle();
+            var layers = styleObj ? styleObj.layers : [];
             for (var i = 0; i < layers.length; i++) {
                 var id = layers[i].id.toLowerCase();
                 if (id.indexOf('boundary') !== -1 || id.indexOf('border') !== -1) {

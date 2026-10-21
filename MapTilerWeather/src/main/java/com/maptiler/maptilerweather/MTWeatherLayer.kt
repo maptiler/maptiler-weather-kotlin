@@ -6,6 +6,7 @@
 
 package com.maptiler.maptilerweather
 
+import android.util.Log
 import com.maptiler.maptilersdk.bridge.MTBridgeReturnType
 import com.maptiler.maptilersdk.map.MTMapViewController
 import com.maptiler.maptilersdk.map.style.layer.MTLayer
@@ -13,12 +14,15 @@ import com.maptiler.maptilersdk.map.style.layer.MTLayerType
 import com.maptiler.maptilersdk.map.style.layer.MTLayerVisibility
 import com.maptiler.maptilerweather.colorramp.MTWeatherColorRamp
 import com.maptiler.maptilerweather.commands.AddWeatherLayer
+import com.maptiler.maptilerweather.commands.IsWeatherModuleLoaded
 import com.maptiler.maptilerweather.commands.RemoveWeatherLayer
 import com.maptiler.maptilerweather.commands.WeatherCommandArgument
 import com.maptiler.maptilerweather.commands.WeatherLayerMethodCommand
 import com.maptiler.maptilerweather.commands.WeatherLayerValueCommand
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
@@ -490,6 +494,13 @@ open class MTWeatherLayer(
          */
         internal val activeLayers: MutableSet<MTWeatherLayer> =
             Collections.synchronizedSet(Collections.newSetFromMap(WeakHashMap()))
+
+        /**
+         * Maximum number of readiness checks before giving up on adding a layer (at least 30 s in total).
+         */
+        private const val MODULE_WAIT_ATTEMPTS = 300
+
+        private const val MODULE_WAIT_INTERVAL_MS = 100L
     }
 
     init {
@@ -510,9 +521,37 @@ open class MTWeatherLayer(
     fun addTo(map: MTMapViewController) {
         this.controller = map
         map.scope?.launch {
+            if (!awaitWeatherModule(map)) {
+                Log.e(
+                    "MTWeatherLayer",
+                    "maptilerweather not found. Make sure MapTilerWeatherModule is registered on the controller.",
+                )
+                return@launch
+            }
             val command = AddWeatherLayer(this@MTWeatherLayer, beforeId)
             map.execute(command)
         }
+    }
+
+    /**
+     * Waits until the map page is loaded and the weather module is injected.
+     *
+     * Commands evaluated before the map page loads are discarded when the page navigates,
+     * so readiness is polled from Kotlin rather than inside the page.
+     */
+    private suspend fun awaitWeatherModule(map: MTMapViewController): Boolean {
+        repeat(MODULE_WAIT_ATTEMPTS) {
+            val result = withTimeoutOrNull(MODULE_WAIT_INTERVAL_MS) { map.execute(IsWeatherModuleLoaded) }
+            val isLoaded =
+                when (result) {
+                    is MTBridgeReturnType.BoolValue -> result.value
+                    is MTBridgeReturnType.StringValue -> result.value.trim('"') == "true"
+                    else -> false
+                }
+            if (isLoaded) return true
+            delay(MODULE_WAIT_INTERVAL_MS)
+        }
+        return false
     }
 
     /**

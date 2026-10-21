@@ -18,10 +18,18 @@ import com.maptiler.maptilersdk.map.style.MTMapReferenceStyle
 import com.maptiler.maptilerweather.MTRadarLayer
 import com.maptiler.maptilerweather.MapTilerWeatherModule
 
-enum class BaseStyleOption(val title: String, val referenceStyle: MTMapReferenceStyle) {
-    DATAVIZ("Dataviz", MTMapReferenceStyle.DATAVIZ),
-    BACKDROP("Backdrop", MTMapReferenceStyle.BACKDROP),
-    SATELLITE("Satellite", MTMapReferenceStyle.SATELLITE)
+/**
+ * Base styles with the ID of their lowest label layer. If the ID is not found in the loaded style,
+ * the SDK falls back to the first symbol (label) layer.
+ */
+enum class BaseStyleOption(
+    val title: String,
+    val referenceStyle: MTMapReferenceStyle,
+    val labelLayerId: String,
+) {
+    DATAVIZ("Dataviz", MTMapReferenceStyle.DATAVIZ, "Ocean labels"),
+    BACKDROP("Backdrop", MTMapReferenceStyle.BACKDROP, "Ocean labels"),
+    SATELLITE("Satellite", MTMapReferenceStyle.SATELLITE, "Pathway labels")
 }
 
 /**
@@ -50,8 +58,9 @@ fun LayerOrderingExample() {
         )
     }
 
+    // Beneath labels: insert before the lowest label layer. Above labels: null moves the layer to the top.
     fun updateLayerOrdering() {
-        radarLayer.beforeId(if (renderBehindLabels) "waterway-label" else null)
+        radarLayer.beforeId(if (renderBehindLabels) selectedStyle.labelLayerId else null)
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -105,10 +114,7 @@ fun LayerOrderingExample() {
                     Text("Render Layer Beneath Labels", color = Color.White)
                     Switch(
                         checked = renderBehindLabels,
-                        onCheckedChange = { checked ->
-                            renderBehindLabels = checked
-                            updateLayerOrdering()
-                        }
+                        onCheckedChange = { renderBehindLabels = it }
                     )
                 }
             }
@@ -116,7 +122,14 @@ fun LayerOrderingExample() {
     }
 
     LaunchedEffect(selectedStyle) {
-        updateLayerOrdering()
+        // The layer is added asynchronously once the weather module is loaded, so apply
+        // the current ordering when it is ready. A null beforeId on add means default placement, not top.
+        radarLayer.onSourceReady = { updateLayerOrdering() }
         radarLayer.addTo(controller)
+    }
+
+    // Keyed on the layer too, so the switch always acts on the layer of the current base style.
+    LaunchedEffect(radarLayer, renderBehindLabels) {
+        updateLayerOrdering()
     }
 }
