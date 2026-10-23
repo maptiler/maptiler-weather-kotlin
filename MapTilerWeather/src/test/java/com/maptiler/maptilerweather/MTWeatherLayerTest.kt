@@ -23,6 +23,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -690,6 +691,14 @@ class MTWeatherLayerTest {
         assertTrue(js.contains("i <= ${AddWeatherLayer.PREFETCH_FRAMES_AHEAD}"))
         assertTrue(js.contains("now - waitStart < ${AddWeatherLayer.MAX_BUFFER_HOLD_MS}"))
         assertTrue(js.contains("})(layer);"))
+        // Only tiles the renderer samples are awaited: floor(zoom), below dataMaxZoom.
+        assertTrue(js.contains("Math.floor(zoom)"))
+        assertTrue(js.contains("layer.dataMaxZoom - 1"))
+        assertTrue(js.contains("var keys = renderedKeys(this);"))
+        assertFalse(js.contains("wantedKeys"))
+        // Frame sources must not download tiles at zooms that are never rendered.
+        assertTrue(js.contains("source._mtZoomGuard = true;"))
+        assertTrue(js.contains("limitTileZoom(this);"))
         // Buffering must be installed before the layer is added to the map.
         assertTrue(js.indexOf("l.animationTick = function()") < js.indexOf("addLayer(layer, before)"))
     }
