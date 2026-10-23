@@ -152,12 +152,18 @@ internal data class AddWeatherLayer(
          * This holds the clock until the current frame pair is loaded (for at most [MAX_BUFFER_HOLD_MS])
          * and requests tiles [PREFETCH_FRAMES_AHEAD] frames ahead. It relies on internals of the bundled
          * `maptiler-weather.js` and leaves the animation untouched if any of them is missing.
+         *
+         * Only tiles the renderer actually samples are requested and awaited: it draws at `floor(zoom)` and
+         * `getTilePlacement` never reads tiles at `zoom >= dataMaxZoom` (it falls back to the parent tile).
+         * The library's own next-frame prefetch ignores that cutoff, so frame sources are also prevented from
+         * creating such tiles.
          */
         internal fun bufferedPlaybackJS(layerVar: String): String =
             """
             (function(l) {
                 if (typeof l.animationTick !== 'function' || typeof l.getCurrentFrames !== 'function' ||
-                    typeof l.getNextFrame !== 'function' || typeof l.getWantedTiles !== 'function') {
+                    typeof l.getNextFrame !== 'function' || typeof l.getWantedTiles !== 'function' ||
+                    typeof l.getTilePlacement !== 'function' || !('dataMaxZoom' in l)) {
                     return;
                 }
                 var originalTick = l.animationTick;
@@ -165,17 +171,46 @@ internal data class AddWeatherLayer(
                 var waitStart = 0;
                 var skippedPair = null;
 
-                function wantedKeys(layer) {
+                // Zoom of the tiles getTilePlacement() reads when the renderer draws at zoom z.
+                function sampledZoom(layer, z) {
+                    return z === 0 ? 0 : Math.min(z, Math.max(0, layer.dataMaxZoom - 1));
+                }
+
+                function renderedKeys(layer) {
                     var grid = layer.tilegrid;
-                    var wanted = layer.getWantedTiles(${MTBridge.MAP_OBJECT}.getZoom(), grid.getMinZoom(), grid.getMaxZoom());
+                    var zoom = ${MTBridge.MAP_OBJECT}.getZoom();
+                    var d = Math.min(grid.getMaxZoom(), Math.max(grid.getMinZoom(), Math.floor(zoom)));
+                    var e = sampledZoom(layer, d);
+                    if (e !== d && !layer.loadLowerZoomLevels) return [];
+                    var shift = d - e;
+                    var n = Math.pow(2, d);
+                    var wanted = layer.getWantedTiles(zoom, grid.getMinZoom(), grid.getMaxZoom());
                     var keys = {};
                     Object.keys(wanted).forEach(function(key) {
                         var zxy = key.split('/').map(Number);
-                        var n = Math.pow(2, zxy[0]);
-                        if (zxy[2] < 0 || zxy[2] >= n) return;
-                        keys[zxy[0] + '/' + (((zxy[1] % n) + n) % n) + '/' + zxy[2]] = true;
+                        if (zxy[0] !== d || zxy[2] < 0 || zxy[2] >= n) return;
+                        var x = ((zxy[1] % n) + n) % n;
+                        keys[e + '/' + (x >> shift) + '/' + (zxy[2] >> shift)] = true;
                     });
                     return Object.keys(keys);
+                }
+
+                // Stops frame sources from downloading tiles that getTilePlacement() never reads.
+                function limitTileZoom(layer) {
+                    for (var i = 0; i < layer.frames.length; i++) {
+                        var source = layer.frames[i].data;
+                        if (!source || source._mtZoomGuard || typeof source.getTile !== 'function') continue;
+                        source._mtZoomGuard = true;
+                        source.getTile = (function(getTile) {
+                            return function(key, create) {
+                                if (create) {
+                                    var z = Number(String(key).split('/')[0]);
+                                    if (sampledZoom(layer, z) !== z) create = false;
+                                }
+                                return getTile.call(this, key, create);
+                            };
+                        })(source.getTile);
+                    }
                 }
 
                 function isLoaded(frame, keys) {
@@ -187,8 +222,9 @@ internal data class AddWeatherLayer(
 
                 l.animationTick = function() {
                     try {
+                        if (this.frames) limitTileZoom(this);
                         if (this.animationSpeed > 0 && this.frames && this.frames.length > 1 && this.tilegrid) {
-                            var keys = wantedKeys(this);
+                            var keys = renderedKeys(this);
                             var current = this.getCurrentFrames();
                             var frame = current.frameA;
                             for (var i = 0; i <= $PREFETCH_FRAMES_AHEAD && frame; i++) {

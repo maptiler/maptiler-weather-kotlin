@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.maptiler.examples.CustomColorRampExample
+import com.maptiler.examples.ForecastAnimationExample
 import com.maptiler.examples.LayerOrderingExample
 import com.maptiler.examples.LayerSwitchingExample
 import com.maptiler.examples.PickAtExample
@@ -76,6 +77,7 @@ class MainActivity : ComponentActivity() {
 
 enum class ExamplePage(val title: String) {
     CUSTOM_COLOR_RAMP("Custom Color Ramp"),
+    FORECAST_ANIMATION("Forecast Animation"),
     LAYER_ORDERING("Layer Ordering"),
     LAYER_SWITCHING("Layer Switching"),
     PICK_AT("Pick At"),
@@ -96,6 +98,7 @@ fun WeatherDemoApp() {
     Box(modifier = Modifier.fillMaxSize()) {
         when (selectedPage) {
             ExamplePage.CUSTOM_COLOR_RAMP -> CustomColorRampExample()
+            ExamplePage.FORECAST_ANIMATION -> ForecastAnimationExample()
             ExamplePage.LAYER_ORDERING -> LayerOrderingExample()
             ExamplePage.LAYER_SWITCHING -> LayerSwitchingExample()
             ExamplePage.PICK_AT -> PickAtExample()
