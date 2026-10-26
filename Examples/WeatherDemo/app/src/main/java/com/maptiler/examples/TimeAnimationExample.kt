@@ -1,28 +1,21 @@
 package com.maptiler.examples
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,17 +28,18 @@ import com.maptiler.maptilersdk.map.MTMapView
 import com.maptiler.maptilersdk.map.MTMapViewController
 import com.maptiler.maptilersdk.map.options.MTEventLevel
 import com.maptiler.maptilersdk.map.style.MTMapReferenceStyle
-import com.maptiler.maptilerweather.MTTemperatureLayer
+import com.maptiler.maptilerweather.MTPrecipitationLayer
+import com.maptiler.maptilerweather.MTRadarLayer
+import com.maptiler.maptilerweather.MTWeatherLayer
 import com.maptiler.maptilerweather.MapTilerWeatherModule
-import com.maptiler.maptilerweather.colorramp.MTWeatherColorRamp
-import com.maptiler.maptilerweather.colorramp.MTWeatherColorRampPreset
-import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+
+private enum class PerformanceLayer(val title: String) {
+    PRECIPITATION("Precipitation"),
+    RADAR("Radar"),
+}
 
 /**
- * Example demonstrating weather time animation and speed adjustment.
+ * Example with only a map, one weather layer and its animation, for checking playback smoothness.
  */
 @Composable
 fun TimeAnimationExample() {
@@ -55,13 +49,6 @@ fun TimeAnimationExample() {
             registerModule(MapTilerWeatherModule(context))
         }
     }
-    val coroutineScope = rememberCoroutineScope()
-
-    var isPlaying by remember { mutableStateOf(false) }
-    var currentSpeedFactor by remember { mutableStateOf(1.0) }
-    var currentDate by remember { mutableStateOf<Date?>(null) }
-    var startDate by remember { mutableStateOf<Date?>(null) }
-    var endDate by remember { mutableStateOf<Date?>(null) }
 
     val options = remember {
         MTMapOptions(
@@ -71,14 +58,9 @@ fun TimeAnimationExample() {
         )
     }
 
-    val layer = remember {
-        MTTemperatureLayer()
-            .opacity(0.85)
-            .colorRamp(MTWeatherColorRamp(MTWeatherColorRampPreset.TEMPERATURE_TURBO))
-            .timeInterpolation(true)
-    }
-
-    val dateFormatter = remember { SimpleDateFormat("EEE, d MMM HH:mm", Locale.getDefault()) }
+    var selected by remember { mutableStateOf(PerformanceLayer.PRECIPITATION) }
+    var layer by remember { mutableStateOf<MTWeatherLayer?>(null) }
+    var isPlaying by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         MTMapView(
@@ -88,86 +70,44 @@ fun TimeAnimationExample() {
             controller = controller,
         )
 
-        // Overlay with playback controls
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.85f)),
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .fillMaxWidth()
+                .navigationBarsPadding()
                 .padding(16.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+            PerformanceLayer.values().forEach { option ->
+                FilterChip(
+                    selected = selected == option,
+                    onClick = { selected = option },
+                    label = { Text(option.title) },
+                    colors = FilterChipDefaults.filterChipColors(containerColor = Color.White)
+                )
+            }
+
+            Button(
+                onClick = {
+                    isPlaying = !isPlaying
+                    layer?.animateByFactor(if (isPlaying) 3600.0 else 0.0)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0088FF))
             ) {
-                Text(
-                    text = "Forecast Time Animation",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color.White
-                )
-
-                Text(
-                    text = currentDate?.let { dateFormatter.format(it) } ?: "Loading time data...",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Color(0xFF0088FF)
-                )
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                ) {
-                    Button(
-                        onClick = {
-                            isPlaying = !isPlaying
-                            layer.animateByFactor(if (isPlaying) 3600.0 * currentSpeedFactor else 0.0)
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0088FF))
-                    ) {
-                        Text(if (isPlaying) "Pause" else "Play")
-                    }
-
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    Text("Speed:", color = Color.White)
-
-                    listOf(1.0, 2.0, 5.0).forEach { factor ->
-                        FilterChip(
-                            selected = currentSpeedFactor == factor,
-                            onClick = {
-                                currentSpeedFactor = factor
-                                if (isPlaying) {
-                                    layer.animateByFactor(3600.0 * currentSpeedFactor)
-                                }
-                            },
-                            label = { Text("${factor.toInt()}x") }
-                        )
-                    }
-                }
+                Text(if (isPlaying) "Pause" else "Play")
             }
         }
     }
 
-    LaunchedEffect(Unit) {
-        layer.onSourceReady = {
-            coroutineScope.launch {
-                startDate = layer.getAnimationStartDate()
-                endDate = layer.getAnimationEndDate()
-                val initialTime = layer.getAnimationTime()
-                if (initialTime != null) {
-                    currentDate = Date((initialTime * 1000).toLong())
-                }
-            }
-        }
-        layer.onTick = { timestampSec ->
-            currentDate = Date((timestampSec * 1000).toLong())
-        }
-        layer.onAnimationTimeSet = { timestampSec ->
-            currentDate = Date((timestampSec * 1000).toLong())
-        }
+    LaunchedEffect(selected) {
+        layer?.removeFrom(controller)
+        isPlaying = false
 
-        layer.addTo(controller)
+        val newLayer = when (selected) {
+            PerformanceLayer.PRECIPITATION -> MTPrecipitationLayer()
+            PerformanceLayer.RADAR -> MTRadarLayer()
+        }
+        newLayer.addTo(controller)
+        layer = newLayer
     }
 }
