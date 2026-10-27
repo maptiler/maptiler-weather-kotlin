@@ -43,7 +43,7 @@ android {
 
 dependencies {
     implementation(project(":MapTilerWeather"))
-    implementation("com.maptiler:maptiler-sdk-kotlin:2.2.0")
+    implementation("com.maptiler:maptiler-sdk-kotlin:2.3.0")
 
     val composeBom = platform("androidx.compose:compose-bom:2025.05.00")
     implementation(composeBom)

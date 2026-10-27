@@ -34,7 +34,7 @@ tasks.preBuild {
 
 // Library coordinates
 group = "com.maptiler"
-version = "1.0.0"
+version = "1.0.1"
 
 android {
     namespace = "com.maptiler.maptilerweather"
@@ -110,7 +110,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("androidx.work:work-runtime-ktx:2.10.0")
 
-    implementation("com.maptiler:maptiler-sdk-kotlin:2.2.2")
+    implementation("com.maptiler:maptiler-sdk-kotlin:2.3.0")
 }
 
 // Generate a javadoc jar from Dokka HTML output (required by Maven Central)
